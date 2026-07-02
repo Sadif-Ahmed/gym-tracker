@@ -38,6 +38,35 @@
   flex: 1;
 }
 
+.tab-bar {
+  display: flex;
+  border-bottom: 1px solid var(--iron-line);
+}
+
+.tab-button {
+  font: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--chalk-dim);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 12px 4px;
+  margin: 0 16px;
+  cursor: pointer;
+}
+
+.tab-button:first-child {
+  margin-left: 20px;
+}
+
+.tab-button.active {
+  color: var(--chalk);
+  border-bottom-color: var(--plate-red);
+}
+
 .loading {
   display: flex;
   min-height: 100svh;
