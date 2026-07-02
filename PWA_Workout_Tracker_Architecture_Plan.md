@@ -157,7 +157,78 @@ create policy "own feedback select" on feedback for select using (auth.uid() = u
 
 This is enforced in the database itself, so even a front-end bug can't leak one friend's data to another. Non-negotiable, lands in the same migration as its table — never a follow-up phase.
 
+### Table grants — required alongside RLS, easy to miss
+
+RLS policies only filter *which rows* a role can touch; Postgres still requires the base table-level privilege (`GRANT`) before that filtering ever runs. Tables created through the Supabase dashboard's Table Editor get this wired up for you automatically — tables created via CLI migrations (as this project does) do **not**. Skipping it doesn't fail loudly in a way that looks related: every request from `authenticated` comes back `403 permission denied for table ...`, which reads like an RLS problem but isn't one. Learned this the hard way when Phase 3 testing caught it on tables that had shipped in Phase 2 with RLS enabled and policies attached, but no grants — so nothing had actually been reachable by a real logged-in user the whole time.
+
+```sql
+grant select, insert, update, delete on
+  split_days, exercises, workout_sessions, set_entries,
+  food_entries, weight_entries, user_goals, daily_steps
+to authenticated;
+
+grant select, insert on feedback to authenticated;
+```
+
+Land this in the same migration as the table + its RLS policies, same rule as everything else in this section.
+
 **Seeding:** per-user on first login (client-side: if the new user has zero `split_days`, insert the default 3-day template), not at deploy time.
+
+### Admin-approval gating (`profiles` table)
+
+Revision note: this project moved from invite-only magic-link auth to **self-serve email+password signup gated by admin approval** — see Section 12 for why. That means RLS on the eight data tables above is no longer just `auth.uid() = user_id`; it also requires the signed-in user to be an *approved* user, otherwise anyone who signs up (approved or not) could hit the API directly with their own valid session and bypass the "pending approval" screen, which is a UI convenience, not a security boundary on its own.
+
+```sql
+create table profiles (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  email text not null,
+  approved boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+alter table profiles enable row level security;
+create policy "own profile select" on profiles for select using (auth.uid() = user_id);
+grant select on profiles to authenticated;
+
+-- auto-create an unapproved profile row on signup
+create function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  insert into public.profiles (user_id, email)
+  values (new.id, new.email)
+  on conflict (user_id) do nothing;
+  return new;
+end;
+$$;
+
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
+
+-- re-scope every data-table policy to also require approval
+create function public.is_approved()
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select coalesce((select approved from public.profiles where user_id = auth.uid()), false);
+$$;
+
+-- e.g. for split_days (repeat per table):
+drop policy "own rows select" on split_days;
+create policy "own rows select" on split_days
+  for select using (auth.uid() = user_id and public.is_approved());
+-- ...same auth.uid() = user_id and public.is_approved() addition on insert/update/delete
+```
+
+`feedback` is deliberately left ungated by approval — a pending user should still be able to ask "why haven't you approved me yet."
+
+**Triage:** approving a user is a single `update profiles set approved = true where email = '...'` run from the Supabase dashboard's table editor or SQL editor — same manual-triage pattern already used for `feedback.status`.
 
 ---
 
@@ -177,8 +248,9 @@ workout-tracker/
 │   ├── main.jsx
 │   ├── lib/supabaseClient.js
 │   ├── auth/
-│   │   ├── LoginView.jsx            // no public signup form — see Section 12
-│   │   └── authGuard.js
+│   │   ├── LoginView.jsx            // email+password, self-serve signup — see Section 12
+│   │   ├── PendingApprovalView.jsx  // shown to signed-in but not-yet-approved users
+│   │   └── authGuard.js             // useSession(), useApproval(), signOut()
 │   ├── data/
 │   │   ├── splitDays.js  exercises.js  workoutSessions.js  setEntries.js
 │   │   ├── foodEntries.js  weightEntries.js  userGoal.js  dailySteps.js
@@ -203,7 +275,7 @@ workout-tracker/
 
 ## 7. Auth Flows & Managing Split Days
 
-Unchanged from the previous revision: Supabase's client handles sessions end to end, `authGuard.js` gates the app, split-day deletion still prompts before touching exercises, snapshots keep history readable through renames/deletes. See Section 12 for the closed-signup change specific to a friends group.
+Supabase's client handles sessions end to end; `authGuard.js` exposes `useSession()` (undefined while checking, `null` signed out, a `Session` when signed in) and `useApproval(session)` (undefined while checking, then `true`/`false` from `profiles.approved`). `App.jsx` gates on both in sequence: no session → `LoginView`; session but not approved → `PendingApprovalView`; both → the real app. Split-day deletion still prompts before touching exercises, snapshots keep history readable through renames/deletes. See Section 12 for the auth model itself (email+password, self-serve signup, admin approval).
 
 ---
 
@@ -228,14 +300,21 @@ Unchanged — each friend gets their own `bridge_token`, sets up their own Short
 
 ---
 
-## 12. Closed Signups: Just You and Your Friends
+## 12. Self-Serve Signup, Gated by Admin Approval
 
-Supabase's default is open self-serve signup — fine for a public app, not what you want for a friend group (no reason to expose "sign up" to the open internet for this).
+**Revision note:** the original design here was invite-only magic-link auth (Supabase dashboard invites new users, self-serve signup disabled). That's been replaced with email+password self-serve signup where anyone can create an account, but a new account can't actually read or write any workout/nutrition data until the project owner approves it. Functionally the same outcome (only people you've vetted can use the app), but signup no longer runs through the dashboard, and there's a real "pending" state a new user sits in rather than never having an account at all.
 
-**Recommended approach — manual invite, zero extra code:**
-In the Supabase dashboard, **Authentication → Users → Invite User**, enter each friend's email. They get a magic-link email, click it, land signed in. Then separately turn off self-serve signup in **Authentication → Settings** (disable "Allow new users to sign up") so the public URL can't be used to create new accounts outside your invites. This is the whole mechanism — no invite-code system to build or maintain, and it matches how you'll actually operate (you're the one adding people by hand anyway).
+**How it works:**
+1. A friend opens the app and signs up with their own email + password from `LoginView.jsx` — this creates a normal Supabase auth user immediately, same as any public app.
+2. A database trigger (`handle_new_user`, Section 5) fires on every new `auth.users` row and inserts a matching `profiles` row with `approved = false`. This happens server-side, unconditionally — there's no client code path that skips it.
+3. The signed-in-but-unapproved user sees `PendingApprovalView.jsx` instead of the app. But that screen is just UX — the actual gate is server-side: every RLS policy on the eight data tables requires `public.is_approved()` in addition to row ownership (Section 5), so an unapproved user hitting the API directly gets a `42501 permission denied for table ...` / RLS-violation error, not just a blocked UI.
+4. You approve someone by running `update profiles set approved = true where email = '...'` from the Supabase dashboard's SQL editor or table editor — no extra UI needed, matches how `feedback.status` is already triaged.
 
-If you later want friends to be able to invite *their* friends without going through you, a simple invite-code table is a reasonable v2 — not needed for v1.
+**Why this instead of the original invite-only design:** it removes the manual "go into the dashboard and invite each person" step — friends can just go to the URL and sign up themselves, and you approve on your own schedule instead of being a blocker on the first step. The trade-off is that Supabase's own "Allow new users to sign up" toggle needs to stay **on** (the opposite of the original recommendation) since self-serve signup is now load-bearing — the approval gate does the job that toggle used to do.
+
+**A gap worth knowing about:** email confirmation. Supabase's default `signUp` flow requires the user to click a confirmation link in their email before they get a session — that's an existing anti-bot/anti-typo layer that stacks with admin approval, not a replacement for it. If confirmation is disabled on the project (or the friend never checks their email), the account still can't touch any real data until you approve it, so there's no security gap either way — just a UX one worth being aware of if signups seem to "hang."
+
+If this later needs an in-app admin screen (approve/reject buttons instead of the dashboard) or a "why was I rejected" notification back to the user, both are reasonable v2 additions — not needed while it's just a handful of people you already know.
 
 ---
 
@@ -291,8 +370,8 @@ Nothing fancy — a `CHANGELOG.md` in the repo, or just a message in whatever gr
 **Phase 2 — Schema + RLS migrations**
 - All nine tables (Section 5) including `feedback`, RLS + four policies per table in the same migration as its table
 
-**Phase 3 — Auth, closed signup**
-- Login view (no signup form), `authGuard.js`, session handling, logout — plus the dashboard-side steps from Section 12 (disable self-serve signup, invite your first test account)
+**Phase 3 — Auth, self-serve signup with admin approval**
+- `LoginView.jsx` (email+password, sign in/sign up), `PendingApprovalView.jsx`, `authGuard.js` (`useSession`, `useApproval`, `signOut`) — plus the `profiles` table, `handle_new_user` trigger, and `is_approved()`-gated RLS on every data table (Section 5/12). Self-serve signup stays **enabled** on the Supabase project — approval is the actual gate, not the dashboard toggle.
 
 **Phase 4 — First-login seed + data modules**
 - `firstLoginSeed.js`, `src/data/*` modules, `generateId()` + local-timezone `todayISO()`
@@ -316,7 +395,7 @@ Nothing fancy — a `CHANGELOG.md` in the repo, or just a message in whatever gr
 **Phase 13 — Feedback loop + safe-iteration setup**
 - Feedback button + modal + `data/feedback.js`, `swUpdateListener.js` + toast, confirm Cloudflare preview URLs are working, write the first `CHANGELOG.md` entry
 
-Once Phase 13 is done, invite your friends (Section 12) and you're in steady-state: branch → preview → test → merge → friends get it next time they open the app, feedback flows back into the `feedback` table for you to triage.
+Once Phase 13 is done, point your friends at the app and approve their accounts as they sign up (Section 12) and you're in steady-state: branch → preview → test → merge → friends get it next time they open the app, feedback flows back into the `feedback` table for you to triage.
 
 ---
 

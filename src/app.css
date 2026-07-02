@@ -62,3 +62,10 @@
 .login-view [role='alert'] {
   color: #d1242f;
 }
+
+.login-view .link-button {
+  background: none;
+  color: var(--accent);
+  padding: 0;
+  align-self: flex-start;
+}
