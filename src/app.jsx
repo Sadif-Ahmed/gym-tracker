@@ -3,6 +3,7 @@ import { useSession, useApproval, signOut } from './auth/authGuard.js'
 import { LoginView } from './auth/LoginView.jsx'
 import { PendingApprovalView } from './auth/PendingApprovalView.jsx'
 import { seedFirstLogin } from './data/firstLoginSeed.js'
+import { TodayView } from './views/today/TodayView.jsx'
 import './app.css'
 
 export function App() {
@@ -47,11 +48,13 @@ export function App() {
     <section id="app-shell">
       <header>
         <h1>WorkoutTracker</h1>
-        <button type="button" onClick={signOut}>
+        <button type="button" class="logout-button" onClick={signOut}>
           Log out
         </button>
       </header>
-      <p>Signed in as {session.user.email}</p>
+      <main>
+        <TodayView userId={session.user.id} />
+      </main>
     </section>
   )
 }

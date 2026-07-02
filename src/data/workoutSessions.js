@@ -11,6 +11,17 @@ export async function listWorkoutSessions({ limit = 50 } = {}) {
   return data
 }
 
+export async function getSessionForDate(date) {
+  const { data, error } = await supabase
+    .from('workout_sessions')
+    .select('*')
+    .eq('date', date)
+    .maybeSingle()
+
+  if (error) throw error
+  return data
+}
+
 export async function getWorkoutSession(id) {
   const { data, error } = await supabase
     .from('workout_sessions')

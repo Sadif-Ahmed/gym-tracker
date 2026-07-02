@@ -8,8 +8,34 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 24px;
-  border-bottom: 1px solid var(--border);
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--iron-line);
+}
+
+#app-shell header h1 {
+  font-size: 18px;
+  margin: 0;
+}
+
+#app-shell .logout-button {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--chalk-dim);
+  background: none;
+  border: 1px solid var(--iron-line);
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+#app-shell .logout-button:hover {
+  color: var(--chalk);
+  border-color: var(--chalk-dim);
+}
+
+#app-shell main {
+  flex: 1;
 }
 
 .loading {
@@ -17,6 +43,7 @@
   min-height: 100svh;
   align-items: center;
   justify-content: center;
+  color: var(--chalk-dim);
 }
 
 .login-view {
@@ -37,35 +64,59 @@
   gap: 8px;
 }
 
+.login-view label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--chalk-dim);
+}
+
 .login-view input {
   font: inherit;
-  padding: 8px 12px;
-  border: 1px solid var(--border);
+  padding: 10px 12px;
+  border: 1px solid var(--iron-line);
   border-radius: 6px;
+  background: var(--surface);
+  color: var(--chalk);
 }
 
-.login-view button {
+.login-view button[type='submit'] {
   font: inherit;
-  padding: 8px 12px;
+  font-weight: 700;
+  padding: 10px 12px;
   border-radius: 6px;
   border: none;
-  color: white;
-  background: var(--accent);
+  color: var(--chalk);
+  background: var(--plate-red);
   cursor: pointer;
+  margin-top: 4px;
 }
 
-.login-view button:disabled {
+.login-view button[type='submit']:disabled {
   opacity: 0.6;
   cursor: default;
 }
 
 .login-view [role='alert'] {
-  color: #d1242f;
+  color: var(--plate-red);
+  font-size: 14px;
+}
+
+.login-view [role='status'] {
+  color: var(--chalk-dim);
 }
 
 .login-view .link-button {
   background: none;
-  color: var(--accent);
+  border: none;
+  color: var(--chalk-dim);
+  text-decoration: underline;
   padding: 0;
   align-self: flex-start;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+}
+
+.login-view .link-button:hover {
+  color: var(--chalk);
 }

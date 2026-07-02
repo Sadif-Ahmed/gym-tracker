@@ -1,0 +1,196 @@
+.today-view {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 24px 20px 96px;
+}
+
+.today-error {
+  background: var(--plate-red-dim);
+  border: 1px solid var(--plate-red);
+  color: var(--chalk);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 20px;
+  font-size: 14px;
+}
+
+.empty-state {
+  color: var(--chalk-dim);
+  font-size: 14px;
+}
+
+/* --- split day picker --- */
+
+.split-picker h1 {
+  margin-bottom: 24px;
+}
+
+.split-picker-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.split-picker-tile {
+  font: inherit;
+  font-family: var(--sans);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 20px;
+  color: var(--chalk);
+  background: var(--surface);
+  border: 1px solid var(--iron-line);
+  border-radius: 10px;
+  padding: 22px 20px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.split-picker-tile:hover {
+  border-color: var(--plate-red);
+  background: var(--surface-raised);
+}
+
+/* --- active workout log --- */
+
+.workout-log-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.finish-button {
+  font: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--chalk);
+  background: var(--plate-red);
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.finished-note {
+  color: var(--pr-green);
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+.exercise-ledger {
+  border-top: 1px solid var(--iron-line);
+  padding: 20px 0;
+}
+
+.exercise-ledger header {
+  margin-bottom: 12px;
+}
+
+.exercise-ledger .muscle-group {
+  color: var(--chalk-dim);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+}
+
+.set-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 14px;
+}
+
+.set-table th {
+  text-align: right;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--chalk-dim);
+  padding: 0 8px 6px;
+}
+
+.set-table th:first-child,
+.set-table td:first-child {
+  text-align: left;
+  padding-left: 0;
+}
+
+.set-table td {
+  padding: 6px 8px;
+  border-top: 1px solid var(--iron-line);
+}
+
+.set-table .num {
+  text-align: right;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.set-table .set-number {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--chalk-dim);
+}
+
+.remove-set {
+  font: inherit;
+  color: var(--chalk-dim);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 4px 6px;
+}
+
+.remove-set:hover {
+  color: var(--plate-red);
+}
+
+.log-set-form {
+  display: flex;
+  gap: 8px;
+}
+
+.log-set-form input {
+  font: inherit;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  width: 0;
+  flex: 1 1 0;
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--iron-line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--chalk);
+  text-align: right;
+}
+
+.log-set-form input::placeholder {
+  font-family: var(--sans);
+  text-align: right;
+}
+
+.log-set-form button {
+  font: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--chalk);
+  background: var(--surface-raised);
+  border: 1px solid var(--iron-line);
+  border-radius: 8px;
+  padding: 10px 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.log-set-form button:hover {
+  border-color: var(--plate-red);
+}
