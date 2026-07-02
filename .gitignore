@@ -20,6 +20,9 @@ dev-dist/
 supabase/.branches
 supabase/.temp
 
+# Wrangler local cache
+.wrangler/
+
 # Claude Code local settings
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
