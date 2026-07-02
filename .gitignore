@@ -1,9 +1,24 @@
 node_modules/
 dist/
+dist-ssr/
+*.local
 .env
 .env.local
 .env.*.local
 .DS_Store
 *.log
-.vscode/
+npm-debug.log*
+
+.vscode/*
+!.vscode/extensions.json
 .idea/
+
+# vite-plugin-pwa generated files
+dev-dist/
+
+# Supabase local dev
+supabase/.branches
+supabase/.temp
+
+# Claude Code local settings
+.claude/settings.local.json
