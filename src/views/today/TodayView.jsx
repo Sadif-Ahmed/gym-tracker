@@ -8,6 +8,7 @@ import {
   updateWorkoutSession,
 } from '../../data/workoutSessions.js'
 import { listSetEntries, createSetEntry, deleteSetEntry } from '../../data/setEntries.js'
+import { estimateExerciseBurn } from '../../services/exerciseCalorieBurn.js'
 import './today.css'
 
 const DAY_LABEL = new Intl.DateTimeFormat(undefined, {
@@ -20,6 +21,20 @@ function formatDayLabel(isoDate) {
   return DAY_LABEL.format(new Date(`${isoDate}T00:00:00`))
 }
 
+function buildExerciseSummary(exercises, setsByExercise) {
+  return exercises
+    .filter((exercise) => (setsByExercise[exercise.id] ?? []).length > 0)
+    .map((exercise) => {
+      const sets = setsByExercise[exercise.id]
+      if (exercise.is_cardio) {
+        const totalMinutes = sets.reduce((sum, s) => sum + (s.duration_seconds ?? 0), 0) / 60
+        return `${exercise.name}: ${Math.round(totalMinutes)} min cardio`
+      }
+      return `${exercise.name}: ${sets.length} sets`
+    })
+    .join('; ')
+}
+
 export function TodayView({ userId }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -27,6 +42,9 @@ export function TodayView({ userId }) {
   const [session, setSession] = useState(null)
   const [exercises, setExercises] = useState([])
   const [setsByExercise, setSetsByExercise] = useState({})
+  const [burnEstimate, setBurnEstimate] = useState(null)
+  const [estimatingBurn, setEstimatingBurn] = useState(false)
+  const [burnError, setBurnError] = useState(null)
 
   const today = todayISO()
 
@@ -133,6 +151,38 @@ export function TodayView({ userId }) {
     }
   }
 
+  async function handleEstimateBurn() {
+    setEstimatingBurn(true)
+    setBurnError(null)
+    try {
+      const durationMinutes =
+        session.start_time && session.end_time
+          ? Math.round((new Date(session.end_time) - new Date(session.start_time)) / 60000)
+          : undefined
+      const result = await estimateExerciseBurn({
+        splitDayName: session.split_day_name_snapshot,
+        exerciseSummaries: buildExerciseSummary(exercises, setsByExercise),
+        durationMinutes,
+      })
+      setBurnEstimate(result.estimated_calories)
+    } catch (err) {
+      setBurnError(err.message)
+    } finally {
+      setEstimatingBurn(false)
+    }
+  }
+
+  async function handleSaveBurn(value) {
+    setBurnError(null)
+    try {
+      const updated = await updateWorkoutSession(session.id, { estimated_calories_burned: value })
+      setSession(updated)
+      setBurnEstimate(null)
+    } catch (err) {
+      setBurnError(err.message)
+    }
+  }
+
   if (loading) {
     return <p class="loading">Loading today…</p>
   }
@@ -155,6 +205,12 @@ export function TodayView({ userId }) {
           onLogSet={handleLogSet}
           onDeleteSet={handleDeleteSet}
           onFinish={handleFinishWorkout}
+          burnEstimate={burnEstimate}
+          estimatingBurn={estimatingBurn}
+          burnError={burnError}
+          onEstimateBurn={handleEstimateBurn}
+          onSaveBurn={handleSaveBurn}
+          onDiscardBurn={() => setBurnEstimate(null)}
         />
       )}
     </section>
@@ -186,7 +242,20 @@ function SplitDayPicker({ splitDays, date, onPick }) {
   )
 }
 
-function WorkoutLog({ session, exercises, setsByExercise, onLogSet, onDeleteSet, onFinish }) {
+function WorkoutLog({
+  session,
+  exercises,
+  setsByExercise,
+  onLogSet,
+  onDeleteSet,
+  onFinish,
+  burnEstimate,
+  estimatingBurn,
+  burnError,
+  onEstimateBurn,
+  onSaveBurn,
+  onDiscardBurn,
+}) {
   return (
     <div class="workout-log">
       <header class="workout-log-header">
@@ -216,7 +285,70 @@ function WorkoutLog({ session, exercises, setsByExercise, onLogSet, onDeleteSet,
           />
         ))
       )}
+
+      {session.end_time && (
+        <BurnEstimateSection
+          session={session}
+          burnEstimate={burnEstimate}
+          estimating={estimatingBurn}
+          error={burnError}
+          onEstimate={onEstimateBurn}
+          onSave={onSaveBurn}
+          onDiscard={onDiscardBurn}
+        />
+      )}
     </div>
+  )
+}
+
+function BurnEstimateSection({ session, burnEstimate, estimating, error, onEstimate, onSave, onDiscard }) {
+  const [editValue, setEditValue] = useState('')
+
+  useEffect(() => {
+    if (burnEstimate != null) setEditValue(String(burnEstimate))
+  }, [burnEstimate])
+
+  return (
+    <section class="burn-estimate-section">
+      {error && (
+        <p class="today-error" role="alert">
+          {error}
+        </p>
+      )}
+
+      {burnEstimate != null ? (
+        <>
+          <p class="eyebrow">Estimated calories burned — review before saving</p>
+          <div class="burn-review-row">
+            <input
+              type="number"
+              value={editValue}
+              onInput={(event) => setEditValue(event.currentTarget.value)}
+            />
+            <button type="button" onClick={() => onSave(Number(editValue))}>
+              Save
+            </button>
+            <button type="button" onClick={onDiscard}>
+              Discard
+            </button>
+          </div>
+        </>
+      ) : session.estimated_calories_burned != null ? (
+        <div class="burn-saved-row">
+          <div>
+            <span class="eyebrow">Estimated calories burned</span>
+            <span class="num burn-value">{session.estimated_calories_burned}</span>
+          </div>
+          <button type="button" onClick={onEstimate} disabled={estimating}>
+            {estimating ? 'Estimating…' : 'Re-estimate'}
+          </button>
+        </div>
+      ) : (
+        <button type="button" class="estimate-burn-button" onClick={onEstimate} disabled={estimating}>
+          {estimating ? 'Estimating…' : 'Estimate calories burned'}
+        </button>
+      )}
+    </section>
   )
 }
 

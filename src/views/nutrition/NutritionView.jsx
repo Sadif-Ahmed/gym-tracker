@@ -1,19 +1,31 @@
-import { useEffect, useState } from 'preact/hooks'
+import { useEffect, useRef, useState } from 'preact/hooks'
 import { listFoodEntriesForDate, createFoodEntry, deleteFoodEntry } from '../../data/foodEntries.js'
 import { getUserGoal } from '../../data/userGoal.js'
 import { latestWeightEntry } from '../../data/weightEntries.js'
 import { todayISO } from '../../utils/dates.js'
 import { computeDailyTarget } from '../../utils/tdeeCalculator.js'
+import { estimateFoodFromPhoto } from '../../services/calorieEstimation.js'
 import './nutrition.css'
 
 const MEAL_TYPES = ['Breakfast', 'Lunch', 'Dinner', 'Snack']
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result.split(',')[1])
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
+}
 
 export function NutritionView({ userId }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [entries, setEntries] = useState([])
   const [target, setTarget] = useState(null)
-  const [showForm, setShowForm] = useState(false)
+  const [mode, setMode] = useState('closed') // closed | manual | estimating | review
+  const [photoEstimate, setPhotoEstimate] = useState(null)
+  const fileInputRef = useRef(null)
 
   const today = todayISO()
 
@@ -40,12 +52,31 @@ export function NutritionView({ userId }) {
     }
   }
 
+  async function handlePhotoSelected(event) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    setMode('estimating')
+    setError(null)
+    try {
+      const base64 = await fileToBase64(file)
+      const estimate = await estimateFoodFromPhoto(base64)
+      setPhotoEstimate(estimate)
+      setMode('review')
+    } catch (err) {
+      setError(err.message)
+      setMode('closed')
+    }
+  }
+
   async function handleAdd(values) {
     setError(null)
     try {
       const created = await createFoodEntry({ userId, date: today, ...values })
       setEntries((prev) => [...prev, created])
-      setShowForm(false)
+      setMode('closed')
+      setPhotoEstimate(null)
     } catch (err) {
       setError(err.message)
     }
@@ -123,24 +154,56 @@ export function NutritionView({ userId }) {
         </ul>
       )}
 
-      {showForm ? (
-        <AddFoodForm onAdd={handleAdd} onCancel={() => setShowForm(false)} />
-      ) : (
-        <button type="button" class="add-food-button" onClick={() => setShowForm(true)}>
-          + Log food
-        </button>
+      <input
+        type="file"
+        accept="image/*"
+        capture="environment"
+        ref={fileInputRef}
+        class="sr-only"
+        onChange={handlePhotoSelected}
+      />
+
+      {mode === 'closed' && (
+        <div class="food-add-actions">
+          <button type="button" class="add-food-button" onClick={() => setMode('manual')}>
+            + Log food
+          </button>
+          <button type="button" class="add-food-button" onClick={() => fileInputRef.current?.click()}>
+            📷 Estimate from photo
+          </button>
+        </div>
+      )}
+
+      {mode === 'estimating' && <p class="empty-state">Estimating from photo…</p>}
+
+      {mode === 'manual' && <AddFoodForm onAdd={handleAdd} onCancel={() => setMode('closed')} />}
+
+      {mode === 'review' && (
+        <AddFoodForm
+          onAdd={handleAdd}
+          onCancel={() => {
+            setMode('closed')
+            setPhotoEstimate(null)
+          }}
+          initialValues={photoEstimate}
+          source="llm_photo"
+        />
       )}
     </section>
   )
 }
 
-function AddFoodForm({ onAdd, onCancel }) {
-  const [name, setName] = useState('')
+function AddFoodForm({ onAdd, onCancel, initialValues, source = 'manual' }) {
+  const [name, setName] = useState(initialValues?.name ?? '')
   const [mealType, setMealType] = useState(MEAL_TYPES[0])
-  const [calories, setCalories] = useState('')
-  const [protein, setProtein] = useState('')
-  const [carbs, setCarbs] = useState('')
-  const [fat, setFat] = useState('')
+  const [calories, setCalories] = useState(
+    initialValues?.calories != null ? String(initialValues.calories) : ''
+  )
+  const [protein, setProtein] = useState(
+    initialValues?.protein_g != null ? String(initialValues.protein_g) : ''
+  )
+  const [carbs, setCarbs] = useState(initialValues?.carbs_g != null ? String(initialValues.carbs_g) : '')
+  const [fat, setFat] = useState(initialValues?.fat_g != null ? String(initialValues.fat_g) : '')
 
   function handleSubmit(event) {
     event.preventDefault()
@@ -155,11 +218,15 @@ function AddFoodForm({ onAdd, onCancel }) {
       proteinG: protein === '' ? null : Number(protein),
       carbsG: carbs === '' ? null : Number(carbs),
       fatG: fat === '' ? null : Number(fat),
+      source,
     })
   }
 
   return (
     <form class="add-food-form" onSubmit={handleSubmit}>
+      {source === 'llm_photo' && (
+        <p class="estimate-note">Estimated from your photo — review and adjust before saving.</p>
+      )}
       <input
         type="text"
         placeholder="Food name"
@@ -205,7 +272,7 @@ function AddFoodForm({ onAdd, onCancel }) {
         />
       </div>
       <div class="add-food-actions">
-        <button type="submit">Add</button>
+        <button type="submit">{source === 'llm_photo' ? 'Save' : 'Add'}</button>
         <button type="button" onClick={onCancel}>
           Cancel
         </button>

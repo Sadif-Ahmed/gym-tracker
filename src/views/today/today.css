@@ -194,3 +194,78 @@
 .log-set-form button:hover {
   border-color: var(--plate-red);
 }
+
+.burn-estimate-section {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--iron-line);
+}
+
+.burn-saved-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.burn-saved-row > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.burn-value {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.burn-review-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.burn-review-row input {
+  font: inherit;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  flex: 1;
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--iron-line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--chalk);
+  text-align: right;
+}
+
+.burn-review-row button,
+.burn-saved-row button,
+.estimate-burn-button {
+  font: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--chalk);
+  background: var(--surface-raised);
+  border: 1px solid var(--iron-line);
+  border-radius: 8px;
+  padding: 10px 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.estimate-burn-button {
+  width: 100%;
+}
+
+.burn-review-row button:hover,
+.burn-saved-row button:hover,
+.estimate-burn-button:hover {
+  border-color: var(--plate-red);
+}
+
+.burn-review-row button:first-of-type {
+  color: var(--chalk);
+  background: var(--plate-red);
+  border-color: var(--plate-red);
+}
