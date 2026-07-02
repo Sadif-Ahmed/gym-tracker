@@ -11,6 +11,16 @@ export async function listSetEntries(sessionId) {
   return data
 }
 
+export async function listSetEntriesForExercise(exerciseId) {
+  const { data, error } = await supabase
+    .from('set_entries')
+    .select('*, workout_sessions(date)')
+    .eq('exercise_id', exerciseId)
+
+  if (error) throw error
+  return data
+}
+
 export async function createSetEntry({
   userId,
   sessionId,

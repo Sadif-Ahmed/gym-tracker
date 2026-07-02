@@ -6,11 +6,13 @@ import { seedFirstLogin } from './data/firstLoginSeed.js'
 import { TodayView } from './views/today/TodayView.jsx'
 import { ManageSplitDaysView } from './views/manageSplitDays/ManageSplitDaysView.jsx'
 import { HistoryView } from './views/history/HistoryView.jsx'
+import { ProgressView } from './views/progress/ProgressView.jsx'
 import './app.css'
 
 const TABS = [
   { id: 'today', label: 'Today' },
   { id: 'history', label: 'History' },
+  { id: 'progress', label: 'Progress' },
   { id: 'splits', label: 'Split Days' },
 ]
 
@@ -78,6 +80,7 @@ export function App() {
       <main>
         {activeTab === 'today' && <TodayView userId={session.user.id} />}
         {activeTab === 'history' && <HistoryView />}
+        {activeTab === 'progress' && <ProgressView />}
         {activeTab === 'splits' && <ManageSplitDaysView userId={session.user.id} />}
       </main>
     </section>

@@ -40,7 +40,14 @@
 
 .tab-bar {
   display: flex;
+  gap: 4px;
   border-bottom: 1px solid var(--iron-line);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tab-bar::-webkit-scrollbar {
+  display: none;
 }
 
 .tab-button {
@@ -53,13 +60,14 @@
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
-  padding: 12px 4px;
-  margin: 0 16px;
+  padding: 12px 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
   cursor: pointer;
 }
 
 .tab-button:first-child {
-  margin-left: 20px;
+  margin-left: 10px;
 }
 
 .tab-button.active {
