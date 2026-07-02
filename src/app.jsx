@@ -5,10 +5,12 @@ import { PendingApprovalView } from './auth/PendingApprovalView.jsx'
 import { seedFirstLogin } from './data/firstLoginSeed.js'
 import { TodayView } from './views/today/TodayView.jsx'
 import { ManageSplitDaysView } from './views/manageSplitDays/ManageSplitDaysView.jsx'
+import { HistoryView } from './views/history/HistoryView.jsx'
 import './app.css'
 
 const TABS = [
   { id: 'today', label: 'Today' },
+  { id: 'history', label: 'History' },
   { id: 'splits', label: 'Split Days' },
 ]
 
@@ -75,6 +77,7 @@ export function App() {
 
       <main>
         {activeTab === 'today' && <TodayView userId={session.user.id} />}
+        {activeTab === 'history' && <HistoryView />}
         {activeTab === 'splits' && <ManageSplitDaysView userId={session.user.id} />}
       </main>
     </section>
