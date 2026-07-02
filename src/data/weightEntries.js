@@ -11,6 +11,17 @@ export async function listWeightEntries({ limit = 90 } = {}) {
   return data
 }
 
+export async function getWeightEntryForDate(date) {
+  const { data, error } = await supabase
+    .from('weight_entries')
+    .select('*')
+    .eq('date', date)
+    .maybeSingle()
+
+  if (error) throw error
+  return data
+}
+
 export async function latestWeightEntry() {
   const { data, error } = await supabase
     .from('weight_entries')
