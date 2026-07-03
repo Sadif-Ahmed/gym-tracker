@@ -74,3 +74,10 @@ export async function deleteWorkoutSession(id) {
   const { error } = await supabase.from('workout_sessions').delete().eq('id', id)
   if (error) throw error
 }
+
+// set_entries cascade via their own FK on delete, so this alone clears an
+// entire workout history — used by the Settings "danger zone".
+export async function deleteAllWorkoutSessions(userId) {
+  const { error } = await supabase.from('workout_sessions').delete().eq('user_id', userId)
+  if (error) throw error
+}

@@ -30,7 +30,8 @@
       "Read(//tmp/**)",
       "Bash(curl -sk -X POST http://127.0.0.1:54321/functions/v1/llm-proxy -H 'Authorization: Bearer __CMDSUB_OUTPUT__' -H 'Content-Type: application/json' --max-time 240 -d '{\"action\":\"estimate_exercise_burn\",\"splitDayName\":\"Push\",\"exerciseSummaries\":\"Bench Press: 4 sets; Overhead Press: 3 sets; Incline Dumbbell Press: 3 sets\",\"durationMinutes\":55}' -w '\\\\nHTTP: %{http_code}\\\\nTIME: %{time_total}s\\\\n')",
       "Bash(echo \"started in background, pid $!\")",
-      "Bash(cat /tmp/llm_result.txt)"
+      "Bash(cat /tmp/llm_result.txt)",
+      "Bash(pkill -f \"vite\")"
     ]
   }
 }

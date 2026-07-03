@@ -25,6 +25,76 @@
   padding: 16px;
 }
 
+.settings-card + .settings-card {
+  margin-top: 16px;
+}
+
+.danger-zone {
+  border-color: var(--plate-red-dim);
+}
+
+.danger-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.danger-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--iron-line);
+}
+
+.danger-row:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
+.danger-row > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.danger-label {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.danger-description {
+  font-size: 12px;
+  color: var(--chalk-dim);
+}
+
+.danger-button {
+  font: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--plate-red);
+  background: none;
+  border: 1px solid var(--plate-red-dim);
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.danger-button:hover {
+  background: var(--plate-red-dim);
+}
+
+.danger-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .settings-card h2 {
   margin-bottom: 8px;
 }

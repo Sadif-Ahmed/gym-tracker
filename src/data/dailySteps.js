@@ -21,3 +21,8 @@ export async function upsertDailySteps({ userId, date, steps }) {
   if (error) throw error
   return data
 }
+
+export async function deleteAllDailySteps(userId) {
+  const { error } = await supabase.from('daily_steps').delete().eq('user_id', userId)
+  if (error) throw error
+}

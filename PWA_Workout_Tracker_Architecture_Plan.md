@@ -1,11 +1,11 @@
 # Workout & Calorie Tracker — Multi-User PWA Architecture Plan
 
-**Revision note:** Updated for the actual scope — you plus a handful of gym friends, with the app evolving based on their feedback. This keeps everything from the previous multi-user revision (Supabase auth, Postgres + RLS, per-user isolation) and adds what a small-trusted-group + iterate-on-feedback workflow actually needs: closed signups, a feedback channel, and a safe way to ship changes without disrupting people mid-use.
+**Revision note:** Updated for the actual scope — you plus a handful of gym friends, with the app evolving based on their feedback given directly to you (not through an in-app channel). This keeps everything from the previous multi-user revision (Supabase auth, Postgres + RLS, per-user isolation) and adds what a small-trusted-group workflow actually needs: closed signups, a safe way to ship changes without disrupting people mid-use, and self-service control over their own logged history.
 
 ---
 
 ## 1. App Concept (in one line)
-A PWA for you and your gym friends — each signs into their own account and gets day-wise workout logging against their own custom split days, calorie tracking (manual + LLM photo estimation), a personal daily deficit target, step data from their own watch via an iOS Shortcuts bridge, JSON export/import, and a way to send you feedback directly from the app.
+A PWA for you and your gym friends — each signs into their own account and gets day-wise workout logging against their own custom split days, calorie tracking (manual + LLM photo estimation), a personal daily deficit target, step data from their own watch via an iOS Shortcuts bridge, an in-app how-to-use guide, and the ability to clear their own logged history by category whenever they want.
 
 ---
 
@@ -240,7 +240,7 @@ workout-tracker/
 ├── vite.config.js
 ├── public/icons/
 ├── supabase/
-│   ├── migrations/                  // tables + RLS, including feedback
+│   ├── migrations/                  // tables + RLS, including feedback (schema only — no UI, Section 13)
 │   └── functions/
 │       ├── llm-proxy/index.ts
 │       └── ingest-steps/index.ts
@@ -254,20 +254,21 @@ workout-tracker/
 │   ├── data/
 │   │   ├── splitDays.js  exercises.js  workoutSessions.js  setEntries.js
 │   │   ├── foodEntries.js  weightEntries.js  userGoal.js  dailySteps.js
-│   │   ├── feedback.js              // new
+│   │   ├── profile.js               // bridge_token read/regenerate, Section 11
+│   │   ├── feedback.js              // dead code — table exists, UI descoped, Section 13
 │   │   └── firstLoginSeed.js
 │   ├── services/
 │   │   ├── calorieEstimation.js
-│   │   ├── exerciseCalorieBurn.js
-│   │   └── backup.js
+│   │   └── exerciseCalorieBurn.js   // classify_exercise_met LLM call, Section 9
 │   ├── utils/
 │   │   ├── tdeeCalculator.js  stepCalorieCalculator.js  progressionAnalyzer.js
+│   │   ├── calorieBurnCalculator.js // deterministic MET math, Section 9
 │   │   ├── generateId.js  dates.js
-│   │   └── swUpdateListener.js      // new — "update available" toast, Section 15
 │   └── views/
 │       ├── today/ history/ progress/ nutrition/
 │       ├── manageSplitDays/ goals/
-│       └── settings/                // export/import, account, steps-bridge setup, feedback button
+│       ├── settings/                // account, steps-bridge setup, danger zone (Section 13)
+│       └── howto/                   // static "how to use" guide tab, Section 14
 └── package.json
 ```
 
@@ -318,16 +319,26 @@ If this later needs an in-app admin screen (approve/reject buttons instead of th
 
 ---
 
-## 13. The Feedback Loop
+## 13. Clearing Your Own History (Danger Zone)
 
-A floating "Feedback" button, visible from any screen, opens a small modal with one textarea and a submit button — inserts a row into the `feedback` table (Section 5) tagged with the current screen name. That's the entire UI; resist adding categories, severity levels, or upvoting for a 5-15 person group, it's not worth the complexity yet.
+**Revision note:** replaces the original "Feedback Loop" section — descoped by request. The `feedback` table and its RLS/grants (Section 5) remain in the schema (harmless, unused) since they landed as part of the core Phase 2 migration alongside every other table, but no feedback UI is being built. Collect input via your existing group chat instead of an in-app channel.
 
-**Triage:** since users can only insert/see their own feedback (no shared visibility by default), you review everything yourself directly in the Supabase dashboard's table editor or SQL editor — your account uses the service role there, which bypasses RLS. Update `status` (`new` → `planned`/`done`/`wontfix`) as you work through it. A shared-visibility policy (so friends can see and upvote each other's requests) is a nice v2 feature once you have a sense of whether people want that.
+Settings gets a "Danger zone" with four independent, self-service delete actions, each confirmed separately:
+
+- **Clear workout history** — deletes every `workout_sessions` row for the signed-in user; `set_entries` cascade via their FK, so this alone clears an entire workout history.
+- **Clear nutrition log** — deletes every `food_entries` row.
+- **Clear weight log** — deletes every `weight_entries` row.
+- **Clear steps history** — deletes every `daily_steps` row.
+
+None of these touch `split_days`, `exercises`, `user_goals`, or `profiles` — this clears *logged history*, not your setup or account config. Every delete is scoped with an explicit `.eq('user_id', userId)` in addition to the RLS policy already restricting it to `auth.uid() = user_id`, so this is pure user self-service, not an admin tool — there's no server-side "delete any user's data" path. No soft-delete/undo: the confirmation dialog is the only safety net, matching the pattern already used for deleting a single workout in History.
 
 ---
 
-## 14. Export / Import JSON
-Unchanged — per-user via RLS, `user_id` stripped/overwritten on import so a file exports cleanly from one account and imports into another, standalone-PWA download quirk still worth testing on-device.
+## 14. How-to-Use Tab
+
+**Revision note:** replaces the original "Export / Import JSON" section — descoped by request; no backup/restore feature is being built. If this becomes needed later, revisit as its own phase rather than reviving this one, since nothing here depends on it.
+
+A static "How To Use" tab, always in the main nav, walks through what each other tab does — Today, Nutrition, History, Progress, Goals, Split Days, Settings. No data fetching, no external content — just plain copy shipped with the app, so it can't drift out of sync with a wiki or doc nobody opens. This doubles as the answer to "how do I do X" questions for a small group, in place of the in-app feedback channel that Section 13 explicitly isn't building.
 
 ---
 
@@ -341,7 +352,7 @@ Cloudflare Pages automatically builds a unique preview URL for every branch othe
 **Point both the preview and production builds at the same Supabase project** for simplicity (it's still just your data + your friends', low risk) unless you're testing a schema migration you're unsure about — for those, spin up a second free Supabase project temporarily rather than risk a bad migration against real data.
 
 ### Don't silently swap versions under an active user
-Service workers update in the background by default, which can otherwise cause a confusing mid-session state (half-old, half-new code). Add a small listener:
+Not yet implemented — this was bundled into the old Phase 13, which is descoped (Section 13). Still worth doing whenever deploy-time glitches actually show up in practice: service workers update in the background by default, which can otherwise cause a confusing mid-session state (half-old, half-new code). Add a small listener:
 ```js
 // utils/swUpdateListener.js
 navigator.serviceWorker.ready.then(reg => {
@@ -389,13 +400,12 @@ Nothing fancy — a `CHANGELOG.md` in the repo, or just a message in whatever gr
 **Phase 10 — LLM proxy Edge Function + photo-to-calorie + exercise burn**
 
 **Phase 11 — Steps bridge**
+- Per-user `bridge_token` on `profiles` + `regenerate_bridge_token()`, `ingest-steps` Edge Function (auth'd via the token, `verify_jwt = false`), Settings view exposing the token + Shortcut setup instructions, steps + estimated burn + sync-freshness shown in Nutrition
 
-**Phase 12 — Export/Import JSON**
+**Phase 12 — Clear-history (danger zone) + How-to-use tab**
+- `deleteAllWorkoutSessions`/`deleteAllFoodEntries`/`deleteAllWeightEntries`/`deleteAllDailySteps` data functions, a Settings "Danger zone" section wired to them (Section 13), and a static "How To Use" tab (Section 14)
 
-**Phase 13 — Feedback loop + safe-iteration setup**
-- Feedback button + modal + `data/feedback.js`, `swUpdateListener.js` + toast, confirm Cloudflare preview URLs are working, write the first `CHANGELOG.md` entry
-
-Once Phase 13 is done, point your friends at the app and approve their accounts as they sign up (Section 12) and you're in steady-state: branch → preview → test → merge → friends get it next time they open the app, feedback flows back into the `feedback` table for you to triage.
+Once Phase 12 is done, point your friends at the app and approve their accounts as they sign up (Section 12 of the auth model, not this build-order Phase 12) and you're in steady-state: branch → push → deploy → smoke test → friends get it next time they open the app. There's no in-app feedback channel — collect input via your existing group chat instead.
 
 ---
 
@@ -403,4 +413,4 @@ Once Phase 13 is done, point your friends at the app and approve their accounts 
 
 > "Set up a new Vite + Preact PWA called WorkoutTracker with `vite-plugin-pwa` and `@vitejs/plugin-basic-ssl`, plus a Supabase project scaffold (`supabase init`, local dev). Implement Phase 2 from this architecture plan: SQL migrations for all nine tables in Section 5 (including `feedback`), with Row Level Security enabled and select/insert/update/delete policies scoped to `auth.uid() = user_id` on every table — note `feedback` only gets insert+select policies, no update/delete for users. Confirm `supabase start` runs locally and `npm run dev` serves over HTTPS on the LAN."
 
-Then Phases 3–13 in separate sessions. Standing rules: every new table gets RLS in the same migration, every new Edge Function starts with the auth check, and nothing merges to `main` without a pass on its Cloudflare preview URL first.
+Then Phases 3–12 in separate sessions. Standing rules: every new table gets RLS in the same migration, every new Edge Function starts with the auth check, and nothing merges to `main` without a pass on its Cloudflare preview URL first.

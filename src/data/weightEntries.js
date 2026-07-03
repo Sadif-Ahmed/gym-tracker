@@ -61,3 +61,8 @@ export async function deleteWeightEntry(id) {
   const { error } = await supabase.from('weight_entries').delete().eq('id', id)
   if (error) throw error
 }
+
+export async function deleteAllWeightEntries(userId) {
+  const { error } = await supabase.from('weight_entries').delete().eq('user_id', userId)
+  if (error) throw error
+}

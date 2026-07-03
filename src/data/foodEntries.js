@@ -60,3 +60,8 @@ export async function deleteFoodEntry(id) {
   const { error } = await supabase.from('food_entries').delete().eq('id', id)
   if (error) throw error
 }
+
+export async function deleteAllFoodEntries(userId) {
+  const { error } = await supabase.from('food_entries').delete().eq('user_id', userId)
+  if (error) throw error
+}
