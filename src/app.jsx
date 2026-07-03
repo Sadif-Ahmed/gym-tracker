@@ -9,6 +9,7 @@ import { HistoryView } from './views/history/HistoryView.jsx'
 import { ProgressView } from './views/progress/ProgressView.jsx'
 import { NutritionView } from './views/nutrition/NutritionView.jsx'
 import { GoalsView } from './views/goals/GoalsView.jsx'
+import { SettingsView } from './views/settings/SettingsView.jsx'
 import './app.css'
 
 const TABS = [
@@ -18,6 +19,7 @@ const TABS = [
   { id: 'progress', label: 'Progress' },
   { id: 'goals', label: 'Goals' },
   { id: 'splits', label: 'Split Days' },
+  { id: 'settings', label: 'Settings' },
 ]
 
 export function App() {
@@ -88,6 +90,7 @@ export function App() {
         {activeTab === 'progress' && <ProgressView />}
         {activeTab === 'goals' && <GoalsView userId={session.user.id} />}
         {activeTab === 'splits' && <ManageSplitDaysView userId={session.user.id} />}
+        {activeTab === 'settings' && <SettingsView />}
       </main>
     </section>
   )

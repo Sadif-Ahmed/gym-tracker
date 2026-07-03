@@ -2,12 +2,29 @@ import { useEffect, useRef, useState } from 'preact/hooks'
 import { listFoodEntriesForDate, createFoodEntry, deleteFoodEntry } from '../../data/foodEntries.js'
 import { getUserGoal } from '../../data/userGoal.js'
 import { latestWeightEntry } from '../../data/weightEntries.js'
+import { getDailySteps } from '../../data/dailySteps.js'
 import { todayISO } from '../../utils/dates.js'
 import { computeDailyTarget } from '../../utils/tdeeCalculator.js'
+import { stepsToCalories } from '../../utils/stepCalorieCalculator.js'
 import { estimateFoodFromPhoto } from '../../services/calorieEstimation.js'
 import './nutrition.css'
 
 const MEAL_TYPES = ['Breakfast', 'Lunch', 'Dinner', 'Snack']
+
+// The bridge is set up to sync roughly hourly (Settings), so a gap much
+// longer than that means the automation stopped firing, not just that an
+// hour hasn't ticked over yet.
+const STALE_AFTER_HOURS = 2
+
+function formatStepsFreshness(syncedAt) {
+  const minutesAgo = Math.round((Date.now() - new Date(syncedAt).getTime()) / 60000)
+  if (minutesAgo < 60) return `Synced ${minutesAgo}m ago`
+  const hoursAgo = Math.round(minutesAgo / 60)
+  const stale = hoursAgo >= STALE_AFTER_HOURS ? ' — stale' : ''
+  if (hoursAgo < 24) return `Synced ${hoursAgo}h ago${stale}`
+  const daysAgo = Math.round(hoursAgo / 24)
+  return `Synced ${daysAgo}d ago — stale`
+}
 
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -23,6 +40,8 @@ export function NutritionView({ userId }) {
   const [error, setError] = useState(null)
   const [entries, setEntries] = useState([])
   const [target, setTarget] = useState(null)
+  const [stepsToday, setStepsToday] = useState(null)
+  const [stepCalories, setStepCalories] = useState(0)
   const [mode, setMode] = useState('closed') // closed | manual | estimating | review
   const [photoEstimate, setPhotoEstimate] = useState(null)
   const fileInputRef = useRef(null)
@@ -37,14 +56,17 @@ export function NutritionView({ userId }) {
     setLoading(true)
     setError(null)
     try {
-      const [foodEntries, goal, weight] = await Promise.all([
+      const [foodEntries, goal, weight, steps] = await Promise.all([
         listFoodEntriesForDate(today),
         getUserGoal(),
         latestWeightEntry(),
+        getDailySteps(today),
       ])
       setEntries(foodEntries)
       const currentWeight = weight?.weight_kg ?? goal?.starting_weight_kg ?? null
       setTarget(computeDailyTarget(goal, currentWeight))
+      setStepsToday(steps)
+      setStepCalories(stepsToCalories(steps?.steps, currentWeight))
     } catch (err) {
       setError(err.message)
     } finally {
@@ -128,6 +150,24 @@ export function NutritionView({ userId }) {
         ) : (
           <p class="empty-state">Set up your goals to see a daily target.</p>
         )}
+      </div>
+
+      <div class="steps-summary">
+        <div>
+          <span class="eyebrow">Steps today</span>
+          <span class="num">{stepsToday ? stepsToday.steps.toLocaleString() : '—'}</span>
+        </div>
+        {stepsToday && (
+          <div>
+            <span class="eyebrow">Est. calories</span>
+            <span class="num">{Math.round(stepCalories)}</span>
+          </div>
+        )}
+        <p class="steps-freshness">
+          {stepsToday
+            ? formatStepsFreshness(stepsToday.synced_at)
+            : 'Not synced yet today — set up the bridge in Settings.'}
+        </p>
       </div>
 
       {entries.length === 0 ? (

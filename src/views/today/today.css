@@ -219,6 +219,30 @@
   font-weight: 700;
 }
 
+.burn-breakdown {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.burn-breakdown li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--chalk-dim);
+}
+
+.burn-breakdown .num {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--chalk);
+}
+
 .burn-review-row {
   display: flex;
   gap: 8px;

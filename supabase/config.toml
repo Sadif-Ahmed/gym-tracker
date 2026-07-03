@@ -371,6 +371,14 @@ authorization_url_path = "/oauth/consent"
 # Allow dynamic client registration
 allow_dynamic_registration = false
 
+# ingest-steps authenticates via each user's own bridge_token instead of a
+# Supabase session JWT (it's called by an iOS Shortcut, not the signed-in
+# app) — verify_jwt must stay off both locally and on deploy
+# (`supabase functions deploy ingest-steps --no-verify-jwt`), otherwise
+# the platform rejects the request before the function ever runs.
+[functions.ingest-steps]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

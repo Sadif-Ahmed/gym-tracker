@@ -37,12 +37,12 @@ const FOOD_SCHEMA = {
   required: ['name', 'calories', 'protein_g', 'carbs_g', 'fat_g'],
 }
 
-const EXERCISE_SCHEMA = {
+const MET_SCHEMA = {
   type: 'object',
   properties: {
-    estimated_calories: { type: 'integer' },
+    met_value: { type: 'number' },
   },
-  required: ['estimated_calories'],
+  required: ['met_value'],
 }
 
 function json(body: unknown, status: number) {
@@ -131,18 +131,24 @@ async function estimateFoodPhoto(apiKey: string, imageBase64: string | undefined
   return callNvidiaWithFallback(apiKey, VISION_MODEL_POOL, system, user, imageBase64, FOOD_SCHEMA)
 }
 
-async function estimateExerciseBurn(
+// Classifies a single exercise's MET (Metabolic Equivalent of Task) value -
+// the one fuzzy judgment call in calorie-burn math (see
+// src/utils/calorieBurnCalculator.js). Called once per exercise ever; the
+// caller persists the result to exercises.met_value so this never runs
+// again for that exercise. The arithmetic itself (met * bodyweight * time)
+// is deterministic client-side math, not an LLM call.
+async function classifyExerciseMet(
   apiKey: string,
-  body: { splitDayName?: string; exerciseSummaries?: string; durationMinutes?: number }
+  body: { name?: string; muscleGroup?: string; isCardio?: boolean }
 ) {
-  const { splitDayName, exerciseSummaries, durationMinutes } = body
-  if (!exerciseSummaries) throw new Error('exerciseSummaries is required')
+  const { name, muscleGroup, isCardio } = body
+  if (!name) throw new Error('name is required')
   const system =
-    'You are a fitness calorie-burn estimation assistant. Given a summary of a strength/cardio workout session, estimate total calories burned for an average adult. Be realistic. Respond only with the requested JSON.'
-  const user = `Workout: ${splitDayName ?? 'unspecified'}. Duration: ${
-    durationMinutes ?? 'unknown'
-  } minutes. Exercises performed: ${exerciseSummaries}. Estimate total calories burned during this session.`
-  return callNvidiaWithFallback(apiKey, TEXT_MODEL_POOL, system, user, undefined, EXERCISE_SCHEMA)
+    'You are an exercise physiology assistant. Given an exercise, classify its MET (Metabolic Equivalent of Task) value for a typical moderate-to-vigorous gym set at that exercise. Use standard MET compendium values as a reference. Respond only with the requested JSON.'
+  const user = `Exercise: ${name}. Muscle group: ${muscleGroup ?? 'unspecified'}. Type: ${
+    isCardio ? 'cardio' : 'strength/resistance'
+  }. Give a realistic MET value for this exercise.`
+  return callNvidiaWithFallback(apiKey, TEXT_MODEL_POOL, system, user, undefined, MET_SCHEMA)
 }
 
 Deno.serve(async (req) => {
@@ -206,8 +212,8 @@ Deno.serve(async (req) => {
     let result: unknown
     if (body.action === 'estimate_food_photo') {
       result = await estimateFoodPhoto(nvidiaApiKey, body.imageBase64 as string | undefined)
-    } else if (body.action === 'estimate_exercise_burn') {
-      result = await estimateExerciseBurn(nvidiaApiKey, body as never)
+    } else if (body.action === 'classify_exercise_met') {
+      result = await classifyExerciseMet(nvidiaApiKey, body as never)
     } else {
       return json({ error: 'Unknown action' }, 400)
     }

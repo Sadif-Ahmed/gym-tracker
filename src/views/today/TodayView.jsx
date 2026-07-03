@@ -8,7 +8,10 @@ import {
   updateWorkoutSession,
 } from '../../data/workoutSessions.js'
 import { listSetEntries, createSetEntry, deleteSetEntry } from '../../data/setEntries.js'
-import { estimateExerciseBurn } from '../../services/exerciseCalorieBurn.js'
+import { updateExercise } from '../../data/exercises.js'
+import { latestWeightEntry } from '../../data/weightEntries.js'
+import { classifyExerciseMet } from '../../services/exerciseCalorieBurn.js'
+import { computeSessionCalorieBurn } from '../../utils/calorieBurnCalculator.js'
 import './today.css'
 
 const DAY_LABEL = new Intl.DateTimeFormat(undefined, {
@@ -21,20 +24,6 @@ function formatDayLabel(isoDate) {
   return DAY_LABEL.format(new Date(`${isoDate}T00:00:00`))
 }
 
-function buildExerciseSummary(exercises, setsByExercise) {
-  return exercises
-    .filter((exercise) => (setsByExercise[exercise.id] ?? []).length > 0)
-    .map((exercise) => {
-      const sets = setsByExercise[exercise.id]
-      if (exercise.is_cardio) {
-        const totalMinutes = sets.reduce((sum, s) => sum + (s.duration_seconds ?? 0), 0) / 60
-        return `${exercise.name}: ${Math.round(totalMinutes)} min cardio`
-      }
-      return `${exercise.name}: ${sets.length} sets`
-    })
-    .join('; ')
-}
-
 export function TodayView({ userId }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -42,7 +31,9 @@ export function TodayView({ userId }) {
   const [session, setSession] = useState(null)
   const [exercises, setExercises] = useState([])
   const [setsByExercise, setSetsByExercise] = useState({})
+  const [bodyweightKg, setBodyweightKg] = useState(null)
   const [burnEstimate, setBurnEstimate] = useState(null)
+  const [burnBreakdown, setBurnBreakdown] = useState(null)
   const [estimatingBurn, setEstimatingBurn] = useState(false)
   const [burnError, setBurnError] = useState(null)
 
@@ -56,7 +47,8 @@ export function TodayView({ userId }) {
     setLoading(true)
     setError(null)
     try {
-      const existingSession = await getSessionForDate(today)
+      const [existingSession, weight] = await Promise.all([getSessionForDate(today), latestWeightEntry()])
+      setBodyweightKg(weight?.weight_kg ?? null)
       if (existingSession) {
         await loadSessionData(existingSession)
       } else {
@@ -155,16 +147,45 @@ export function TodayView({ userId }) {
     setEstimatingBurn(true)
     setBurnError(null)
     try {
-      const durationMinutes =
+      if (!bodyweightKg) {
+        throw new Error('Log your weight in Goals before estimating calories burned.')
+      }
+
+      const involved = exercises.filter((exercise) => (setsByExercise[exercise.id] ?? []).length > 0)
+
+      // Classify MET is a one-time-per-exercise LLM call, cached on
+      // exercises.met_value — most exercises will already have it after
+      // their first workout, so this is usually a no-op.
+      const involvedWithMet = []
+      for (const exercise of involved) {
+        if (exercise.met_value != null) {
+          involvedWithMet.push(exercise)
+          continue
+        }
+        const metValue = await classifyExerciseMet({
+          name: exercise.name,
+          muscleGroup: exercise.muscle_group,
+          isCardio: exercise.is_cardio,
+        })
+        const updated = await updateExercise(exercise.id, { met_value: metValue })
+        setExercises((prev) => prev.map((e) => (e.id === updated.id ? updated : e)))
+        involvedWithMet.push(updated)
+      }
+
+      const sessionDurationMinutes =
         session.start_time && session.end_time
           ? Math.round((new Date(session.end_time) - new Date(session.start_time)) / 60000)
-          : undefined
-      const result = await estimateExerciseBurn({
-        splitDayName: session.split_day_name_snapshot,
-        exerciseSummaries: buildExerciseSummary(exercises, setsByExercise),
-        durationMinutes,
+          : 0
+
+      const { totalCalories, breakdown } = computeSessionCalorieBurn({
+        exercises: involvedWithMet,
+        setsByExercise,
+        bodyweightKg,
+        sessionDurationMinutes,
       })
-      setBurnEstimate(result.estimated_calories)
+
+      setBurnEstimate(Math.round(totalCalories))
+      setBurnBreakdown(breakdown)
     } catch (err) {
       setBurnError(err.message)
     } finally {
@@ -178,6 +199,7 @@ export function TodayView({ userId }) {
       const updated = await updateWorkoutSession(session.id, { estimated_calories_burned: value })
       setSession(updated)
       setBurnEstimate(null)
+      setBurnBreakdown(null)
     } catch (err) {
       setBurnError(err.message)
     }
@@ -206,11 +228,15 @@ export function TodayView({ userId }) {
           onDeleteSet={handleDeleteSet}
           onFinish={handleFinishWorkout}
           burnEstimate={burnEstimate}
+          burnBreakdown={burnBreakdown}
           estimatingBurn={estimatingBurn}
           burnError={burnError}
           onEstimateBurn={handleEstimateBurn}
           onSaveBurn={handleSaveBurn}
-          onDiscardBurn={() => setBurnEstimate(null)}
+          onDiscardBurn={() => {
+            setBurnEstimate(null)
+            setBurnBreakdown(null)
+          }}
         />
       )}
     </section>
@@ -250,6 +276,7 @@ function WorkoutLog({
   onDeleteSet,
   onFinish,
   burnEstimate,
+  burnBreakdown,
   estimatingBurn,
   burnError,
   onEstimateBurn,
@@ -290,6 +317,7 @@ function WorkoutLog({
         <BurnEstimateSection
           session={session}
           burnEstimate={burnEstimate}
+          burnBreakdown={burnBreakdown}
           estimating={estimatingBurn}
           error={burnError}
           onEstimate={onEstimateBurn}
@@ -301,7 +329,16 @@ function WorkoutLog({
   )
 }
 
-function BurnEstimateSection({ session, burnEstimate, estimating, error, onEstimate, onSave, onDiscard }) {
+function BurnEstimateSection({
+  session,
+  burnEstimate,
+  burnBreakdown,
+  estimating,
+  error,
+  onEstimate,
+  onSave,
+  onDiscard,
+}) {
   const [editValue, setEditValue] = useState('')
 
   useEffect(() => {
@@ -319,6 +356,16 @@ function BurnEstimateSection({ session, burnEstimate, estimating, error, onEstim
       {burnEstimate != null ? (
         <>
           <p class="eyebrow">Estimated calories burned — review before saving</p>
+          {burnBreakdown && burnBreakdown.length > 0 && (
+            <ul class="burn-breakdown">
+              {burnBreakdown.map((entry) => (
+                <li key={entry.exerciseId}>
+                  <span>{entry.name}</span>
+                  <span class="num">{Math.round(entry.calories)} kcal</span>
+                </li>
+              ))}
+            </ul>
+          )}
           <div class="burn-review-row">
             <input
               type="number"
