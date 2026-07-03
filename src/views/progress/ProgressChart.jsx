@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'preact/hooks'
 import { Chart } from 'chart.js/auto'
 
-export function ProgressChart({ labels, data }) {
+export function ProgressChart({ labels, data, label = 'Estimated 1RM (kg)' }) {
   const canvasRef = useRef(null)
   const chartRef = useRef(null)
 
@@ -14,7 +14,7 @@ export function ProgressChart({ labels, data }) {
         labels,
         datasets: [
           {
-            label: 'Estimated 1RM (kg)',
+            label,
             data,
             borderColor: '#d6402f',
             backgroundColor: '#d6402f',
@@ -36,7 +36,7 @@ export function ProgressChart({ labels, data }) {
     })
 
     return () => chartRef.current?.destroy()
-  }, [labels, data])
+  }, [labels, data, label])
 
   return (
     <div class="progress-chart">

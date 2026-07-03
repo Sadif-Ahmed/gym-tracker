@@ -161,7 +161,7 @@ export function TodayView({ userId }) {
         exerciseId: exercise.id,
         exerciseNameSnapshot: exercise.name,
         setNumber: nextSetNumber,
-        reps: values.reps ?? 0,
+        reps: values.reps ?? null,
         weightKg: values.weightKg ?? null,
         durationSeconds: values.durationSeconds ?? null,
       })

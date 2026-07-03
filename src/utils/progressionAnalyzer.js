@@ -30,3 +30,28 @@ export function bestSetPerSession(sets) {
 
   return Array.from(bySession.values()).sort((a, b) => a.date.localeCompare(b.date))
 }
+
+// sets: [{ date, durationSeconds, sessionId }, ...] (unsorted, any order)
+// Returns one point per session — total logged minutes that session, summed
+// across every entry (a session may log the same cardio exercise more than
+// once) — sorted oldest to newest.
+export function totalDurationPerSession(sets) {
+  const bySession = new Map()
+
+  for (const set of sets) {
+    if (set.durationSeconds == null) continue
+
+    const existing = bySession.get(set.sessionId)
+    if (existing) {
+      existing.totalMinutes += set.durationSeconds / 60
+    } else {
+      bySession.set(set.sessionId, {
+        date: set.date,
+        totalMinutes: set.durationSeconds / 60,
+        sessionId: set.sessionId,
+      })
+    }
+  }
+
+  return Array.from(bySession.values()).sort((a, b) => a.date.localeCompare(b.date))
+}

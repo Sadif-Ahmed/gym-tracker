@@ -32,6 +32,14 @@ const DEFAULT_TEMPLATE = [
       { name: 'Standing Calf Raise', muscleGroup: 'Calves', defaultSets: 4, defaultRepRange: '12-20' },
     ],
   },
+  {
+    name: 'Cardio',
+    exercises: [
+      { name: 'Walk', muscleGroup: 'Cardio', isCardio: true },
+      { name: 'Run', muscleGroup: 'Cardio', isCardio: true },
+      { name: 'Cycling', muscleGroup: 'Cardio', isCardio: true },
+    ],
+  },
 ]
 
 // Runs client-side on first login rather than at deploy time, so it's
@@ -54,6 +62,7 @@ export async function seedFirstLogin(userId) {
           muscleGroup: exercise.muscleGroup,
           defaultSets: exercise.defaultSets,
           defaultRepRange: exercise.defaultRepRange,
+          isCardio: exercise.isCardio ?? false,
           sortOrder: j,
         })
       )

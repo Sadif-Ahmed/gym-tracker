@@ -24,7 +24,7 @@ const SECTIONS = [
   {
     title: 'Progress',
     body: [
-      'Pick a strength exercise to chart its estimated one-rep max over time, using your best set from each session.',
+      'Pick any exercise to chart it over time — estimated one-rep max from your best set each session for strength exercises, total minutes logged each session for cardio.',
     ],
   },
   {
