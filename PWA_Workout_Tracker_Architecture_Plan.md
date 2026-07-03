@@ -16,18 +16,18 @@ A PWA for you and your gym friends — each signs into their own account and get
 | Build tooling | **Vite** + `vite-plugin-pwa` | Unchanged |
 | UI | **Preact** | Unchanged |
 | Charts | **Chart.js** | Unchanged |
-| Static hosting | **Cloudflare Pages** (free) | Unchanged — and its automatic branch preview URLs are what makes safe iteration possible (Section 15) |
+| Static hosting | **Cloudflare Workers** (static assets, free) | Deployed via manual `wrangler deploy`, not Cloudflare Pages' Git integration — see Section 15 for why, and how safety works without automatic per-branch previews |
 | Auth + database + server functions | **Supabase** (free tier) | Unchanged reasoning: don't hand-roll auth; Postgres + RLS gives per-user isolation enforced by the database itself |
 | Local storage | IndexedDB, optional read-only cache | Unchanged — server is the source of truth |
-| Backup/portability | JSON export/import | Unchanged |
+| Backup/portability | *None* | Descoped by request (Section 14) — no JSON export/import exists; revisit as its own phase if it's ever actually needed |
 
-**Scale check for "me + gym friends":** Supabase free tier (500MB DB, 50K MAU) and Cloudflare Pages free tier aren't just "enough" here, they're wildly oversized for 5-15 people. Nothing in this plan needs to change if the group grows to a few dozen; you'd only revisit the stack if this became a genuinely public product.
+**Scale check for "me + gym friends":** Supabase free tier (500MB DB, 50K MAU) and Cloudflare Workers' free tier aren't just "enough" here, they're wildly oversized for 5-15 people. Nothing in this plan needs to change if the group grows to a few dozen; you'd only revisit the stack if this became a genuinely public product.
 
 ---
 
 ## 3. Building From Ubuntu — Still Simple
 
-- `npm run dev`, test on iPhone over LAN HTTPS (`@vitejs/plugin-basic-ssl`), deploy via `git push`.
+- `npm run dev`, test on iPhone over LAN HTTPS (`@vitejs/plugin-basic-ssl`), deploy via `npm run build && wrangler deploy` — manual, not an automatic `git push` trigger (see Section 15).
 - Secure-context gotcha still applies (no service worker / no `crypto.randomUUID()` over plain HTTP) — keep basic-ssl and the `generateId()` fallback.
 - Supabase CLI (`supabase start`) runs the full backend locally in Docker for development; push migrations to the hosted project when ready.
 
@@ -174,6 +174,8 @@ Land this in the same migration as the table + its RLS policies, same rule as ev
 
 **Seeding:** per-user on first login (client-side: if the new user has zero `split_days`, insert the default 3-day template), not at deploy time.
 
+**Later additive migrations** (not shown above — `supabase/migrations/` is the source of truth for exact DDL): `exercises.met_value` (Section 9, cached LLM MET classification), `profiles.bridge_token` + `regenerate_bridge_token()` (Section 11, steps-bridge auth), and an `llm_usage` table backing the per-user daily LLM call cap (Section 9). Same rule applies to every one of them — RLS + grants land in the same migration as the change.
+
 ### Admin-approval gating (`profiles` table)
 
 Revision note: this project moved from invite-only magic-link auth to **self-serve email+password signup gated by admin approval** — see Section 12 for why. That means RLS on the eight data tables above is no longer just `auth.uid() = user_id`; it also requires the signed-in user to be an *approved* user, otherwise anyone who signs up (approved or not) could hit the API directly with their own valid session and bypass the "pending approval" screen, which is a UI convenience, not a security boundary on its own.
@@ -288,7 +290,11 @@ Unchanged — pure functions over fetched rows, automatically per-user via RLS.
 
 ## 9. LLM Calls: Photo-to-Calorie & Exercise Burn
 
-Unchanged from the previous revision — auth-checked Edge Function (`llm-proxy`), key stored as a Supabase secret, per-user daily call cap as insurance, photos never persisted, review-before-save stays. Worth keeping the daily cap even for a trusted group — it's not about distrust, it's a cheap guard against a runaway bug (e.g., a retry loop) burning your LLM budget while you're not watching.
+Both calls go through the same auth-checked Edge Function (`llm-proxy`), key stored as a Supabase secret, per-user daily call cap (`llm_usage` table + `increment_llm_usage()`) as insurance — not about distrust, it's a cheap guard against a runaway bug (e.g. a retry loop) burning your LLM budget while you're not watching.
+
+**Photo-to-calorie:** unchanged from the original design — a vision model estimates name/calories/macros from a food photo, photos are never persisted, and the result is always reviewed before saving to `food_entries`.
+
+**Exercise burn — rearchitected from a session-level estimate to per-set MET math:** the original design asked the LLM to estimate total calories burned for an entire session from a text summary (e.g. "Bench Press: 4 sets..."). That's been replaced with a deterministic calculation — `calories = MET × bodyweight_kg × hours` — computed client-side (`src/utils/calorieBurnCalculator.js`) from each exercise's actual logged weight/reps or cardio duration. The LLM's only remaining job is classifying an exercise's MET value once, ever, via a `classify_exercise_met` action, cached on `exercises.met_value` (Section 5) — so a repeat workout using already-classified exercises needs no LLM call at all. The per-exercise breakdown + total is shown for review before saving to `workout_sessions.estimated_calories_burned`, same review-before-save principle as the photo estimate.
 
 ---
 
@@ -351,10 +357,14 @@ A static "How To Use" tab, always in the main nav, walks through what each other
 
 This is the part that matters most for "build upon it based on feedback" specifically.
 
-### Preview deployments (you already get this for free)
-Cloudflare Pages automatically builds a unique preview URL for every branch other than `main`. Workflow: build a feature on a branch → push → get a preview URL → test it yourself on your own phone → merge to `main` only once it's solid → that's what goes live for your friends. This means you're never shipping untested changes straight to people who are relying on the app to log their actual workout.
+### No automatic preview deployments — deploy straight to production, smoke-test after
+The original plan here assumed Cloudflare Pages' automatic per-branch preview URLs. In practice, setting that up in the Cloudflare dashboard produced a **Workers** project instead of a Pages one (the generated deploy command was `wrangler deploy`, not `wrangler pages deploy`, and its build queue stalled indefinitely at "Initializing build environment") — so this project deploys as a **Cloudflare Worker serving static assets**, pushed manually with `npm run build && wrangler deploy` straight to `https://gym-tracker.sadif-ahmed.workers.dev`. There is no separate preview URL per branch, and the team works directly on `master`.
 
-**Point both the preview and production builds at the same Supabase project** for simplicity (it's still just your data + your friends', low risk) unless you're testing a schema migration you're unsure about — for those, spin up a second free Supabase project temporarily rather than risk a bad migration against real data.
+The practical substitute: after every push to `master`, deploy and then smoke-test the live URL with a real browser (Playwright) — confirm it boots cleanly, the login view renders, no console/page errors. This isn't a pre-merge gate the way a true preview URL would be, but it catches a broken deploy before anyone else notices, and stays lightweight enough for a small group. Full authenticated-flow testing (sign up, log a workout, clear history, etc.) stays local-only against the disposable local Supabase stack, run before the deploy — never against production.
+
+If this project ever needs real pre-merge previews, revisit as a dedicated Cloudflare Pages project (delete/recreate via "Workers & Pages → Create → Pages → Connect to Git") rather than trying to configure previews onto the current Workers setup.
+
+**Point both local dev and production at the same Supabase project** for simplicity (it's still just your data + your friends', low risk) unless you're testing a schema migration you're unsure about — for those, spin up a second free Supabase project temporarily rather than risk a bad migration against real data.
 
 ### Don't silently swap versions under an active user
 Not yet implemented — this was bundled into the old Phase 13, which is descoped (Section 13). Still worth doing whenever deploy-time glitches actually show up in practice: service workers update in the background by default, which can otherwise cause a confusing mid-session state (half-old, half-new code). Add a small listener:
@@ -381,7 +391,7 @@ Nothing fancy — a `CHANGELOG.md` in the repo, or just a message in whatever gr
 ## 16. Suggested Build Order for Claude Code
 
 **Phase 1 — Scaffold + Supabase project**
-- Vite + Preact + `vite-plugin-pwa` + basic-ssl; Supabase project + local dev; static shell on Cloudflare Pages
+- Vite + Preact + `vite-plugin-pwa` + basic-ssl; Supabase project + local dev; static shell deployed as a Cloudflare Worker (static assets) — see Section 15 for why Pages didn't pan out
 
 **Phase 2 — Schema + RLS migrations**
 - All nine tables (Section 5) including `feedback`, RLS + four policies per table in the same migration as its table
@@ -421,4 +431,4 @@ Once Phase 13 is done, point your friends at the app and approve their accounts 
 
 > "Set up a new Vite + Preact PWA called WorkoutTracker with `vite-plugin-pwa` and `@vitejs/plugin-basic-ssl`, plus a Supabase project scaffold (`supabase init`, local dev). Implement Phase 2 from this architecture plan: SQL migrations for all nine tables in Section 5 (including `feedback`), with Row Level Security enabled and select/insert/update/delete policies scoped to `auth.uid() = user_id` on every table — note `feedback` only gets insert+select policies, no update/delete for users. Confirm `supabase start` runs locally and `npm run dev` serves over HTTPS on the LAN."
 
-Then Phases 3–13 in separate sessions. Standing rules: every new table gets RLS in the same migration, every new Edge Function starts with the auth check, and nothing merges to `main` without a pass on its Cloudflare preview URL first.
+Then Phases 3–13 in separate sessions. Standing rules: every new table gets RLS in the same migration, every new Edge Function starts with the auth check, and every deploy gets a live-URL smoke test afterward (Section 15) — there's no pre-merge preview URL to gate on instead.
