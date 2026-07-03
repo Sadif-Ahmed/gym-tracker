@@ -16,6 +16,16 @@ export default defineConfig({
       // silently sitting there until every tab closes — see Section 15 of
       // the architecture plan.
       injectRegister: false,
+      // clientsClaim so the *manual* skipWaiting our toast triggers
+      // (see swUpdateListener.js) actually takes control of the already-
+      // open tab immediately — without it, activating the new worker
+      // never fires the 'controlling' event on the current page, so the
+      // reload-after-tapping-Refresh never happens and the toast just
+      // sits there. Safe to pair with prompt-based skipWaiting per
+      // Workbox's own guidance, since it still only activates on request.
+      workbox: {
+        clientsClaim: true,
+      },
       includeAssets: ['favicon.svg', 'icons/icon.svg'],
       manifest: {
         name: 'WorkoutTracker',

@@ -371,27 +371,40 @@ If this project ever needs real pre-merge previews, revisit as a dedicated Cloud
 **Point both local dev and production at the same Supabase project** for simplicity (it's still just your data + your friends', low risk) unless you're testing a schema migration you're unsure about — for those, spin up a second free Supabase project temporarily rather than risk a bad migration against real data.
 
 ### Don't silently swap versions under an active user
-Implemented via `useSwUpdate()` (`src/utils/swUpdateListener.js`), rather than a raw `updatefound`/`statechange` listener wired by hand. `vite-plugin-pwa`'s `registerType: 'prompt'` already means a new service worker installs but waits rather than auto-activating; `injectRegister: false` (`vite.config.js`) turns off the plugin's own auto-injected registration script so the app can register it itself and hook `onNeedRefresh`, via the framework-agnostic `virtual:pwa-register` module:
+Implemented via `useSwUpdate()` (`src/utils/swUpdateListener.js`), built on `vite-plugin-pwa`'s official `virtual:pwa-register/preact` integration rather than a raw `updatefound`/`statechange` listener wired by hand. `registerType: 'prompt'` already means a new service worker installs but waits rather than auto-activating; `injectRegister: false` (`vite.config.js`) turns off the plugin's own auto-injected registration script so the app can register it itself and hook `onNeedRefresh`:
 
 ```js
 // utils/swUpdateListener.js
-import { registerSW } from 'virtual:pwa-register'
+import { useEffect } from 'preact/hooks'
+import { useRegisterSW } from 'virtual:pwa-register/preact'
 
 export function useSwUpdate() {
-  const [needRefresh, setNeedRefresh] = useState(false)
-  const updateSwRef = useRef(null)
+  const {
+    needRefresh: [needRefresh],
+    updateServiceWorker,
+  } = useRegisterSW()
 
   useEffect(() => {
-    updateSwRef.current = registerSW({ onNeedRefresh: () => setNeedRefresh(true) })
+    if (!('serviceWorker' in navigator)) return
+    let reloaded = false
+    function handleControllerChange() {
+      if (reloaded) return
+      reloaded = true
+      window.location.reload()
+    }
+    navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange)
+    return () => navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange)
   }, [])
 
-  return { needRefresh, updateNow: () => updateSwRef.current?.(true) }
+  return { needRefresh, updateNow: () => updateServiceWorker(true) }
 }
 ```
 
-`App.jsx` renders a fixed "New version available" toast whenever `needRefresh` is true — always on top of whatever the auth/tab state is currently showing, since an update can land at any point. Tapping it calls `updateNow()`, which activates the waiting service worker (`skipWaiting`) and reloads. Nothing happens automatically — a friend mid-set never gets swapped onto new code without asking for it.
+`App.jsx` renders a fixed "New version available" toast whenever `needRefresh` is true — always on top of whatever the auth/tab state is currently showing, since an update can land at any point. Tapping it calls `updateNow()`, which messages the waiting worker to skip waiting; the reload itself is driven by our own `controllerchange` listener rather than relying on the plugin's internal one, since the moment `navigator.serviceWorker.controller` actually changes is the one signal we can trust directly. Nothing happens automatically — a friend mid-set never gets swapped onto new code without asking for it.
 
-Note this only exercises meaningfully over a real HTTPS origin — local dev's self-signed cert (`@vitejs/plugin-basic-ssl`) makes Chromium fail the service worker's own script-fetch TLS check even with a test tool's "ignore HTTPS errors" flag set, which doesn't extend to that fetch. Verify this one against the deployed URL, not local dev/preview.
+**A real gotcha, not just a hypothetical one:** this needs `workbox: { clientsClaim: true }` in the `VitePWA()` config. Without it, sending the skip-waiting message does activate the new service worker, but it never takes control of the *already-open* tab — so `controllerchange` never fires there, "Refresh" silently does nothing, and the toast just sits there forever. `clientsClaim` paired with prompt-based (not automatic) `skipWaiting` is Workbox's own documented pattern for exactly this UX, and is what makes the already-open tab actually pick up the new version once the user asks for it.
+
+This one only exercises meaningfully over a real HTTPS origin — local dev's self-signed cert (`@vitejs/plugin-basic-ssl`) makes Chromium fail the service worker's own script-fetch TLS check even with a test tool's "ignore HTTPS errors" flag set, which doesn't extend to that fetch. It also can't be verified with a simple reload-and-look, since `index.html`/`sw.js` are served `must-revalidate, max-age=0` — a manual reload just fetches the new version directly over the network and never exercises the prompt-while-still-open path at all. Verify it by deploying a change while a tab stays open (no reload) and forcing `registration.update()` from that tab instead, against the deployed URL — not local dev/preview.
 
 ### Telling people what changed
 Nothing fancy — a `CHANGELOG.md` in the repo, or just a message in whatever group chat you already use with them. Match the process weight to the group size: this should stay lightweight.
