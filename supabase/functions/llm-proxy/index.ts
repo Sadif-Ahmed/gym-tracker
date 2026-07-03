@@ -45,10 +45,22 @@ const MET_SCHEMA = {
   required: ['met_value'],
 }
 
+// Browsers preflight any cross-origin request carrying an Authorization
+// header, and Supabase's hosted Edge Function gateway (unlike the local
+// dev one) doesn't add CORS headers for you - the function must handle
+// OPTIONS and stamp these on every response itself, or the real request
+// never gets sent. Wildcard origin is fine here since auth is a bearer
+// token the caller sets explicitly, not an ambient cookie.
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
 function json(body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
   })
 }
 
@@ -152,6 +164,9 @@ async function classifyExerciseMet(
 }
 
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: CORS_HEADERS })
+  }
   if (req.method !== 'POST') {
     return json({ error: 'Method not allowed' }, 405)
   }
