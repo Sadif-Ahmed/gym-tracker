@@ -248,9 +248,10 @@ workout-tracker/
 │   ├── main.jsx
 │   ├── lib/supabaseClient.js
 │   ├── auth/
-│   │   ├── LoginView.jsx            // email+password, self-serve signup — see Section 12
+│   │   ├── LoginView.jsx            // email+password, self-serve signup + forgot-password — Section 12
 │   │   ├── PendingApprovalView.jsx  // shown to signed-in but not-yet-approved users
-│   │   └── authGuard.js             // useSession(), useApproval(), signOut()
+│   │   ├── ResetPasswordView.jsx    // shown during a PASSWORD_RECOVERY session, Section 12
+│   │   └── authGuard.js             // useSession(), useApproval(), usePasswordRecovery(), signOut()
 │   ├── data/
 │   │   ├── splitDays.js  exercises.js  workoutSessions.js  setEntries.js
 │   │   ├── foodEntries.js  weightEntries.js  userGoal.js  dailySteps.js
@@ -316,6 +317,10 @@ Unchanged — each friend gets their own `bridge_token`, sets up their own Short
 **A gap worth knowing about:** email confirmation. Supabase's default `signUp` flow requires the user to click a confirmation link in their email before they get a session — that's an existing anti-bot/anti-typo layer that stacks with admin approval, not a replacement for it. If confirmation is disabled on the project (or the friend never checks their email), the account still can't touch any real data until you approve it, so there's no security gap either way — just a UX one worth being aware of if signups seem to "hang."
 
 If this later needs an in-app admin screen (approve/reject buttons instead of the dashboard) or a "why was I rejected" notification back to the user, both are reasonable v2 additions — not needed while it's just a handful of people you already know.
+
+**Forgot / reset password:** `LoginView.jsx` has a "Forgot password?" link (sign-in mode only) that calls `supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })` — the response is identical whether or not the email is registered, so the UI can't be used to enumerate accounts. Clicking the emailed link brings the user back to the app with a recovery session; the Supabase JS client fires a `PASSWORD_RECOVERY` auth event (caught by `usePasswordRecovery()` in `authGuard.js`) which `App.jsx` checks *before* its normal session/approval branching, rendering `ResetPasswordView.jsx` (a plain `supabase.auth.updateUser({ password })` call) instead of dropping the user straight into the app on that temporary session.
+
+**Deployment note:** `resetPasswordForEmail`'s `redirectTo` must match an entry in the Supabase project's Redirect URLs allow-list or GoTrue silently falls back to the configured Site URL instead. Local dev's `additional_redirect_urls` (Section 3) covers `https://localhost:5173`; the **hosted project's** Site URL / Redirect URLs (Supabase dashboard → Authentication → URL Configuration) need `https://gym-tracker.sadif-ahmed.workers.dev` added separately — that's a dashboard-only setting, not something a migration or `config.toml` change can reach.
 
 ---
 
@@ -405,7 +410,10 @@ Nothing fancy — a `CHANGELOG.md` in the repo, or just a message in whatever gr
 **Phase 12 — Clear-history (danger zone) + How-to-use tab**
 - `deleteAllWorkoutSessions`/`deleteAllFoodEntries`/`deleteAllWeightEntries`/`deleteAllDailySteps` data functions, a Settings "Danger zone" section wired to them (Section 13), and a static "How To Use" tab (Section 14)
 
-Once Phase 12 is done, point your friends at the app and approve their accounts as they sign up (Section 12 of the auth model, not this build-order Phase 12) and you're in steady-state: branch → push → deploy → smoke test → friends get it next time they open the app. There's no in-app feedback channel — collect input via your existing group chat instead.
+**Phase 13 — Forgot / reset password**
+- "Forgot password?" link + `resetPasswordForEmail` in `LoginView.jsx`, `usePasswordRecovery()` in `authGuard.js`, `ResetPasswordView.jsx` (Section 12) — plus the hosted project's Redirect URLs allow-list needs `https://gym-tracker.sadif-ahmed.workers.dev` added via the dashboard for this to work in production
+
+Once Phase 13 is done, point your friends at the app and approve their accounts as they sign up (Section 12 of the auth model, not this build-order phase) and you're in steady-state: branch → push → deploy → smoke test → friends get it next time they open the app. There's no in-app feedback channel — collect input via your existing group chat instead.
 
 ---
 
@@ -413,4 +421,4 @@ Once Phase 12 is done, point your friends at the app and approve their accounts 
 
 > "Set up a new Vite + Preact PWA called WorkoutTracker with `vite-plugin-pwa` and `@vitejs/plugin-basic-ssl`, plus a Supabase project scaffold (`supabase init`, local dev). Implement Phase 2 from this architecture plan: SQL migrations for all nine tables in Section 5 (including `feedback`), with Row Level Security enabled and select/insert/update/delete policies scoped to `auth.uid() = user_id` on every table — note `feedback` only gets insert+select policies, no update/delete for users. Confirm `supabase start` runs locally and `npm run dev` serves over HTTPS on the LAN."
 
-Then Phases 3–12 in separate sessions. Standing rules: every new table gets RLS in the same migration, every new Edge Function starts with the auth check, and nothing merges to `main` without a pass on its Cloudflare preview URL first.
+Then Phases 3–13 in separate sessions. Standing rules: every new table gets RLS in the same migration, every new Edge Function starts with the auth check, and nothing merges to `main` without a pass on its Cloudflare preview URL first.

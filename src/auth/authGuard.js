@@ -57,3 +57,24 @@ export function useApproval(session) {
 export function signOut() {
   return supabase.auth.signOut()
 }
+
+// Supabase's JS client parses the recovery tokens out of the URL on load
+// and fires this event instead of a normal sign-in — that's the SPA-safe
+// signal to show ResetPasswordView instead of the regular app, since a
+// recovery session is still a real session (App.jsx would otherwise just
+// drop the user straight into their account).
+export function usePasswordRecovery() {
+  const [inRecovery, setInRecovery] = useState(false)
+
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') setInRecovery(true)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  return [inRecovery, setInRecovery]
+}

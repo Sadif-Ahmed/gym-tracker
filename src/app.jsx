@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'preact/hooks'
-import { useSession, useApproval, signOut } from './auth/authGuard.js'
+import { useSession, useApproval, usePasswordRecovery, signOut } from './auth/authGuard.js'
 import { LoginView } from './auth/LoginView.jsx'
 import { PendingApprovalView } from './auth/PendingApprovalView.jsx'
+import { ResetPasswordView } from './auth/ResetPasswordView.jsx'
 import { seedFirstLogin } from './data/firstLoginSeed.js'
 import { TodayView } from './views/today/TodayView.jsx'
 import { ManageSplitDaysView } from './views/manageSplitDays/ManageSplitDaysView.jsx'
@@ -27,6 +28,7 @@ const TABS = [
 export function App() {
   const session = useSession()
   const approved = useApproval(session)
+  const [inRecovery, setInRecovery] = usePasswordRecovery()
   const [seeded, setSeeded] = useState(false)
   const [activeTab, setActiveTab] = useState('today')
 
@@ -45,6 +47,10 @@ export function App() {
 
   if (session === undefined) {
     return <p class="loading">Loading…</p>
+  }
+
+  if (inRecovery) {
+    return <ResetPasswordView onDone={() => setInRecovery(false)} />
   }
 
   if (!session) {
