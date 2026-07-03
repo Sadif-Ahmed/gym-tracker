@@ -12,6 +12,7 @@ import { NutritionView } from './views/nutrition/NutritionView.jsx'
 import { GoalsView } from './views/goals/GoalsView.jsx'
 import { SettingsView } from './views/settings/SettingsView.jsx'
 import { HowToView } from './views/howto/HowToView.jsx'
+import { useSwUpdate } from './utils/swUpdateListener.js'
 import './app.css'
 
 const TABS = [
@@ -31,6 +32,7 @@ export function App() {
   const [inRecovery, setInRecovery] = usePasswordRecovery()
   const [seeded, setSeeded] = useState(false)
   const [activeTab, setActiveTab] = useState('today')
+  const { needRefresh, updateNow } = useSwUpdate()
 
   useEffect(() => {
     if (!session || !approved) return
@@ -45,62 +47,67 @@ export function App() {
     }
   }, [session, approved])
 
+  let content
   if (session === undefined) {
-    return <p class="loading">Loading…</p>
-  }
+    content = <p class="loading">Loading…</p>
+  } else if (inRecovery) {
+    content = <ResetPasswordView onDone={() => setInRecovery(false)} />
+  } else if (!session) {
+    content = <LoginView />
+  } else if (approved === undefined) {
+    content = <p class="loading">Loading…</p>
+  } else if (!approved) {
+    content = <PendingApprovalView email={session.user.email} />
+  } else if (!seeded) {
+    content = <p class="loading">Loading…</p>
+  } else {
+    content = (
+      <section id="app-shell">
+        <header>
+          <h1>WorkoutTracker</h1>
+          <button type="button" class="logout-button" onClick={signOut}>
+            Log out
+          </button>
+        </header>
 
-  if (inRecovery) {
-    return <ResetPasswordView onDone={() => setInRecovery(false)} />
-  }
+        <nav class="tab-bar">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              class={`tab-button${activeTab === tab.id ? ' active' : ''}`}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
 
-  if (!session) {
-    return <LoginView />
-  }
-
-  if (approved === undefined) {
-    return <p class="loading">Loading…</p>
-  }
-
-  if (!approved) {
-    return <PendingApprovalView email={session.user.email} />
-  }
-
-  if (!seeded) {
-    return <p class="loading">Loading…</p>
+        <main>
+          {activeTab === 'today' && <TodayView userId={session.user.id} />}
+          {activeTab === 'nutrition' && <NutritionView userId={session.user.id} />}
+          {activeTab === 'history' && <HistoryView />}
+          {activeTab === 'progress' && <ProgressView />}
+          {activeTab === 'goals' && <GoalsView userId={session.user.id} />}
+          {activeTab === 'splits' && <ManageSplitDaysView userId={session.user.id} />}
+          {activeTab === 'settings' && <SettingsView userId={session.user.id} />}
+          {activeTab === 'howto' && <HowToView />}
+        </main>
+      </section>
+    )
   }
 
   return (
-    <section id="app-shell">
-      <header>
-        <h1>WorkoutTracker</h1>
-        <button type="button" class="logout-button" onClick={signOut}>
-          Log out
-        </button>
-      </header>
-
-      <nav class="tab-bar">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            class={`tab-button${activeTab === tab.id ? ' active' : ''}`}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            {tab.label}
+    <>
+      {needRefresh && (
+        <div class="update-toast" role="status">
+          <span>New version available</span>
+          <button type="button" onClick={updateNow}>
+            Refresh
           </button>
-        ))}
-      </nav>
-
-      <main>
-        {activeTab === 'today' && <TodayView userId={session.user.id} />}
-        {activeTab === 'nutrition' && <NutritionView userId={session.user.id} />}
-        {activeTab === 'history' && <HistoryView />}
-        {activeTab === 'progress' && <ProgressView />}
-        {activeTab === 'goals' && <GoalsView userId={session.user.id} />}
-        {activeTab === 'splits' && <ManageSplitDaysView userId={session.user.id} />}
-        {activeTab === 'settings' && <SettingsView userId={session.user.id} />}
-        {activeTab === 'howto' && <HowToView />}
-      </main>
-    </section>
+        </div>
+      )}
+      {content}
+    </>
   )
 }

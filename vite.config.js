@@ -10,6 +10,12 @@ export default defineConfig({
     basicSsl(),
     VitePWA({
       registerType: 'prompt',
+      // We register the service worker ourselves (utils/swUpdateListener.js)
+      // instead of the plugin's auto-injected script, so a new version can
+      // show an in-app "New version available" toast instead of just
+      // silently sitting there until every tab closes — see Section 15 of
+      // the architecture plan.
+      injectRegister: false,
       includeAssets: ['favicon.svg', 'icons/icon.svg'],
       manifest: {
         name: 'WorkoutTracker',

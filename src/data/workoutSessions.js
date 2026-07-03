@@ -11,6 +11,20 @@ export async function listWorkoutSessions({ limit = 50 } = {}) {
   return data
 }
 
+// Strictly before `date`, so this never double-counts today's own
+// in-progress session — used for Today's "recent workouts" glance.
+export async function listWorkoutSessionsBefore(date, { limit = 3 } = {}) {
+  const { data, error } = await supabase
+    .from('workout_sessions')
+    .select('*')
+    .lt('date', date)
+    .order('date', { ascending: false })
+    .limit(limit)
+
+  if (error) throw error
+  return data
+}
+
 export async function getSessionForDate(date) {
   const { data, error } = await supabase
     .from('workout_sessions')

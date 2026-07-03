@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks'
 import { listWorkoutSessions, deleteWorkoutSession } from '../../data/workoutSessions.js'
 import { listSetEntries } from '../../data/setEntries.js'
+import { groupSetsByExercise, formatSet } from '../../utils/workoutSummary.js'
 import './history.css'
 
 const DAY_LABEL = new Intl.DateTimeFormat(undefined, {
@@ -11,27 +12,6 @@ const DAY_LABEL = new Intl.DateTimeFormat(undefined, {
 
 function formatDayLabel(isoDate) {
   return DAY_LABEL.format(new Date(`${isoDate}T00:00:00`))
-}
-
-function groupSetsByExercise(sets) {
-  const order = []
-  const groups = {}
-  for (const set of sets) {
-    const key = set.exercise_name_snapshot
-    if (!groups[key]) {
-      groups[key] = []
-      order.push(key)
-    }
-    groups[key].push(set)
-  }
-  return order.map((name) => ({ name, sets: groups[name] }))
-}
-
-function formatSet(set) {
-  if (set.duration_seconds != null) {
-    return `${Math.round(set.duration_seconds / 60)}m`
-  }
-  return `${set.weight_kg ?? '—'}×${set.reps}`
 }
 
 export function HistoryView() {

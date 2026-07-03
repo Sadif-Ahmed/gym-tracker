@@ -266,7 +266,9 @@ workout-tracker/
 │   ├── utils/
 │   │   ├── tdeeCalculator.js  stepCalorieCalculator.js  progressionAnalyzer.js
 │   │   ├── calorieBurnCalculator.js // deterministic MET math, Section 9
-│   │   ├── generateId.js  dates.js
+│   │   ├── workoutSummary.js        // groupSetsByExercise/formatSet, shared by History + Today
+│   │   ├── swUpdateListener.js      // "update available" toast via registerSW, Section 15
+│   │   └── generateId.js  dates.js
 │   └── views/
 │       ├── today/ history/ progress/ nutrition/
 │       ├── manageSplitDays/ goals/
@@ -280,6 +282,8 @@ workout-tracker/
 ## 7. Auth Flows & Managing Split Days
 
 Supabase's client handles sessions end to end; `authGuard.js` exposes `useSession()` (undefined while checking, `null` signed out, a `Session` when signed in) and `useApproval(session)` (undefined while checking, then `true`/`false` from `profiles.approved`). `App.jsx` gates on both in sequence: no session → `LoginView`; session but not approved → `PendingApprovalView`; both → the real app. Split-day deletion still prompts before touching exercises, snapshots keep history readable through renames/deletes. See Section 12 for the auth model itself (email+password, self-serve signup, admin approval).
+
+**Today tab specifics:** below whatever's active (split picker or the workout log), Today shows a read-only glance at the last `RECENT_HISTORY_LIMIT` (3) workouts strictly *before* today (`listWorkoutSessionsBefore`), so it never duplicates today's own in-progress session. Today's split-day choice stays editable — a "Change split" control swaps `workout_sessions.split_day_id`/`split_day_name_snapshot` on the existing session at any point while it's still that session's date (not gated on whether you've hit Finish, since the constraint that matters is the calendar day, not the finished state). Existing logged sets are never deleted or reassigned on a switch; if the new split doesn't include the exercise they were logged against, they simply stop appearing under Today until you switch back — visible again via History regardless.
 
 ---
 
@@ -367,21 +371,27 @@ If this project ever needs real pre-merge previews, revisit as a dedicated Cloud
 **Point both local dev and production at the same Supabase project** for simplicity (it's still just your data + your friends', low risk) unless you're testing a schema migration you're unsure about — for those, spin up a second free Supabase project temporarily rather than risk a bad migration against real data.
 
 ### Don't silently swap versions under an active user
-Not yet implemented — this was bundled into the old Phase 13, which is descoped (Section 13). Still worth doing whenever deploy-time glitches actually show up in practice: service workers update in the background by default, which can otherwise cause a confusing mid-session state (half-old, half-new code). Add a small listener:
+Implemented via `useSwUpdate()` (`src/utils/swUpdateListener.js`), rather than a raw `updatefound`/`statechange` listener wired by hand. `vite-plugin-pwa`'s `registerType: 'prompt'` already means a new service worker installs but waits rather than auto-activating; `injectRegister: false` (`vite.config.js`) turns off the plugin's own auto-injected registration script so the app can register it itself and hook `onNeedRefresh`, via the framework-agnostic `virtual:pwa-register` module:
+
 ```js
 // utils/swUpdateListener.js
-navigator.serviceWorker.ready.then(reg => {
-  reg.addEventListener('updatefound', () => {
-    const newWorker = reg.installing;
-    newWorker.addEventListener('statechange', () => {
-      if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-        showUpdateToast(); // "New version available — tap to refresh"
-      }
-    });
-  });
-});
+import { registerSW } from 'virtual:pwa-register'
+
+export function useSwUpdate() {
+  const [needRefresh, setNeedRefresh] = useState(false)
+  const updateSwRef = useRef(null)
+
+  useEffect(() => {
+    updateSwRef.current = registerSW({ onNeedRefresh: () => setNeedRefresh(true) })
+  }, [])
+
+  return { needRefresh, updateNow: () => updateSwRef.current?.(true) }
+}
 ```
-Simple, and it's the difference between friends trusting the app and friends hitting a weird bug mid-set because of a background update.
+
+`App.jsx` renders a fixed "New version available" toast whenever `needRefresh` is true — always on top of whatever the auth/tab state is currently showing, since an update can land at any point. Tapping it calls `updateNow()`, which activates the waiting service worker (`skipWaiting`) and reloads. Nothing happens automatically — a friend mid-set never gets swapped onto new code without asking for it.
+
+Note this only exercises meaningfully over a real HTTPS origin — local dev's self-signed cert (`@vitejs/plugin-basic-ssl`) makes Chromium fail the service worker's own script-fetch TLS check even with a test tool's "ignore HTTPS errors" flag set, which doesn't extend to that fetch. Verify this one against the deployed URL, not local dev/preview.
 
 ### Telling people what changed
 Nothing fancy — a `CHANGELOG.md` in the repo, or just a message in whatever group chat you already use with them. Match the process weight to the group size: this should stay lightweight.

@@ -62,6 +62,44 @@
   margin-bottom: 28px;
 }
 
+.change-split-button {
+  font: inherit;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--chalk-dim);
+  background: none;
+  border: none;
+  padding: 4px 0 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.change-split-button:hover {
+  color: var(--chalk);
+}
+
+.change-split-panel .split-picker {
+  margin-bottom: 12px;
+}
+
+.cancel-change-split {
+  font: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--chalk-dim);
+  background: none;
+  border: 1px solid var(--iron-line);
+  border-radius: 8px;
+  padding: 10px 16px;
+  cursor: pointer;
+  width: 100%;
+}
+
+.cancel-change-split:hover {
+  color: var(--chalk);
+  border-color: var(--plate-red);
+}
+
 .finish-button {
   font: inherit;
   font-weight: 700;
@@ -292,4 +330,67 @@
   color: var(--chalk);
   background: var(--plate-red);
   border-color: var(--plate-red);
+}
+
+/* --- recent workouts glance --- */
+
+.recent-workouts {
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px solid var(--iron-line);
+}
+
+.recent-workouts-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.recent-workout-row {
+  background: var(--surface);
+  border: 1px solid var(--iron-line);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.recent-workout-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.recent-workout-date {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--chalk-dim);
+}
+
+.recent-workout-name {
+  font-weight: 700;
+}
+
+.recent-workout-exercise {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  padding: 4px 0;
+}
+
+.recent-workout-exercise-name {
+  color: var(--chalk-dim);
+}
+
+.recent-workout-exercise-sets {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }

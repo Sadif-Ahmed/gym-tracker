@@ -75,6 +75,42 @@
   border-bottom-color: var(--plate-red);
 }
 
+.update-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface-raised);
+  border: 1px solid var(--iron-line);
+  border-radius: 10px;
+  padding: 10px 12px 10px 16px;
+  box-shadow: var(--shadow);
+  max-width: calc(100vw - 32px);
+}
+
+.update-toast span {
+  font-size: 14px;
+  color: var(--chalk);
+  white-space: nowrap;
+}
+
+.update-toast button {
+  font: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--chalk);
+  background: var(--plate-red);
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
 .loading {
   display: flex;
   min-height: 100svh;

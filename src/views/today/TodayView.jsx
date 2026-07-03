@@ -6,13 +6,17 @@ import {
   getSessionForDate,
   createWorkoutSession,
   updateWorkoutSession,
+  listWorkoutSessionsBefore,
 } from '../../data/workoutSessions.js'
 import { listSetEntries, createSetEntry, deleteSetEntry } from '../../data/setEntries.js'
 import { updateExercise } from '../../data/exercises.js'
 import { latestWeightEntry } from '../../data/weightEntries.js'
 import { classifyExerciseMet } from '../../services/exerciseCalorieBurn.js'
 import { computeSessionCalorieBurn } from '../../utils/calorieBurnCalculator.js'
+import { groupSetsByExercise, formatSet } from '../../utils/workoutSummary.js'
 import './today.css'
+
+const RECENT_HISTORY_LIMIT = 3
 
 const DAY_LABEL = new Intl.DateTimeFormat(undefined, {
   weekday: 'long',
@@ -36,6 +40,8 @@ export function TodayView({ userId }) {
   const [burnBreakdown, setBurnBreakdown] = useState(null)
   const [estimatingBurn, setEstimatingBurn] = useState(false)
   const [burnError, setBurnError] = useState(null)
+  const [recentSessions, setRecentSessions] = useState([])
+  const [changingSplit, setChangingSplit] = useState(false)
 
   const today = todayISO()
 
@@ -47,12 +53,24 @@ export function TodayView({ userId }) {
     setLoading(true)
     setError(null)
     try {
-      const [existingSession, weight] = await Promise.all([getSessionForDate(today), latestWeightEntry()])
+      const [existingSession, weight, days, recent] = await Promise.all([
+        getSessionForDate(today),
+        latestWeightEntry(),
+        listSplitDays(),
+        listWorkoutSessionsBefore(today, { limit: RECENT_HISTORY_LIMIT }),
+      ])
       setBodyweightKg(weight?.weight_kg ?? null)
+      setSplitDays(days)
+      setRecentSessions(
+        await Promise.all(
+          recent.map(async (recentSession) => ({
+            session: recentSession,
+            sets: await listSetEntries(recentSession.id),
+          }))
+        )
+      )
       if (existingSession) {
         await loadSessionData(existingSession)
-      } else {
-        setSplitDays(await listSplitDays())
       }
     } catch (err) {
       setError(err.message)
@@ -89,6 +107,32 @@ export function TodayView({ userId }) {
         startTime: new Date().toISOString(),
       })
       await loadSessionData(newSession)
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  async function handleChangeSplit(splitDay) {
+    const hasLoggedSets = Object.values(setsByExercise).some((sets) => sets.length > 0)
+    if (
+      hasLoggedSets &&
+      !window.confirm(
+        `Switch today's workout to ${splitDay.name}? Sets already logged for exercises outside this split stay saved, but won't show here.`
+      )
+    ) {
+      return
+    }
+
+    setError(null)
+    try {
+      const updated = await updateWorkoutSession(session.id, {
+        split_day_id: splitDay.id,
+        split_day_name_snapshot: splitDay.name,
+      })
+      setBurnEstimate(null)
+      setBurnBreakdown(null)
+      setChangingSplit(false)
+      await loadSessionData(updated)
     } catch (err) {
       setError(err.message)
     }
@@ -219,6 +263,13 @@ export function TodayView({ userId }) {
 
       {!session ? (
         <SplitDayPicker splitDays={splitDays} date={today} onPick={handleStartWorkout} />
+      ) : changingSplit ? (
+        <div class="change-split-panel">
+          <SplitDayPicker splitDays={splitDays} date={today} onPick={handleChangeSplit} />
+          <button type="button" class="cancel-change-split" onClick={() => setChangingSplit(false)}>
+            Cancel
+          </button>
+        </div>
       ) : (
         <WorkoutLog
           session={session}
@@ -227,6 +278,7 @@ export function TodayView({ userId }) {
           onLogSet={handleLogSet}
           onDeleteSet={handleDeleteSet}
           onFinish={handleFinishWorkout}
+          onChangeSplit={() => setChangingSplit(true)}
           burnEstimate={burnEstimate}
           burnBreakdown={burnBreakdown}
           estimatingBurn={estimatingBurn}
@@ -239,6 +291,42 @@ export function TodayView({ userId }) {
           }}
         />
       )}
+
+      <RecentWorkouts recentSessions={recentSessions} />
+    </section>
+  )
+}
+
+function RecentWorkouts({ recentSessions }) {
+  if (recentSessions.length === 0) return null
+
+  return (
+    <section class="recent-workouts">
+      <p class="eyebrow">
+        Last {recentSessions.length} workout{recentSessions.length === 1 ? '' : 's'}
+      </p>
+      <ul class="recent-workouts-list">
+        {recentSessions.map(({ session: recentSession, sets }) => (
+          <li key={recentSession.id} class="recent-workout-row">
+            <div class="recent-workout-header">
+              <span class="recent-workout-date">{formatDayLabel(recentSession.date)}</span>
+              <span class="recent-workout-name">{recentSession.split_day_name_snapshot}</span>
+            </div>
+            {sets.length === 0 ? (
+              <p class="empty-state">No sets logged.</p>
+            ) : (
+              groupSetsByExercise(sets).map((group) => (
+                <div class="recent-workout-exercise" key={group.name}>
+                  <span class="recent-workout-exercise-name">{group.name}</span>
+                  <span class="recent-workout-exercise-sets num">
+                    {group.sets.map(formatSet).join(', ')}
+                  </span>
+                </div>
+              ))
+            )}
+          </li>
+        ))}
+      </ul>
     </section>
   )
 }
@@ -275,6 +363,7 @@ function WorkoutLog({
   onLogSet,
   onDeleteSet,
   onFinish,
+  onChangeSplit,
   burnEstimate,
   burnBreakdown,
   estimatingBurn,
@@ -289,6 +378,9 @@ function WorkoutLog({
         <div>
           <p class="eyebrow">{formatDayLabel(session.date)}</p>
           <h1>{session.split_day_name_snapshot}</h1>
+          <button type="button" class="change-split-button" onClick={onChangeSplit}>
+            Change split
+          </button>
         </div>
         {!session.end_time && (
           <button type="button" class="finish-button" onClick={onFinish}>
