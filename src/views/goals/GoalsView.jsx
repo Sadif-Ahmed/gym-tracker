@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks'
 import { getUserGoal, upsertUserGoal } from '../../data/userGoal.js'
 import { latestWeightEntry, getWeightEntryForDate, createWeightEntry, updateWeightEntry } from '../../data/weightEntries.js'
+import { getDailySteps, upsertDailySteps } from '../../data/dailySteps.js'
 import { todayISO } from '../../utils/dates.js'
 import { computeDailyTarget } from '../../utils/tdeeCalculator.js'
 import './goals.css'
@@ -32,6 +33,9 @@ export function GoalsView({ userId }) {
   const [saving, setSaving] = useState(false)
   const [weightInput, setWeightInput] = useState('')
   const [loggingWeight, setLoggingWeight] = useState(false)
+  const [todaySteps, setTodaySteps] = useState(null)
+  const [stepsInput, setStepsInput] = useState('')
+  const [loggingSteps, setLoggingSteps] = useState(false)
 
   useEffect(() => {
     load()
@@ -41,8 +45,13 @@ export function GoalsView({ userId }) {
     setLoading(true)
     setError(null)
     try {
-      const [existingGoal, weight] = await Promise.all([getUserGoal(), latestWeightEntry()])
+      const [existingGoal, weight, steps] = await Promise.all([
+        getUserGoal(),
+        latestWeightEntry(),
+        getDailySteps(todayISO()),
+      ])
       setLatestWeight(weight)
+      setTodaySteps(steps)
       if (existingGoal) {
         setGoal(existingGoal)
         setForm({
@@ -107,6 +116,25 @@ export function GoalsView({ userId }) {
     }
   }
 
+  async function handleLogSteps(event) {
+    event.preventDefault()
+    const steps = Number(stepsInput)
+    if (stepsInput === '' || Number.isNaN(steps) || steps < 0) return
+
+    setLoggingSteps(true)
+    setError(null)
+    try {
+      const today = todayISO()
+      const entry = await upsertDailySteps({ userId, date: today, steps: Math.round(steps) })
+      setTodaySteps(entry)
+      setStepsInput('')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoggingSteps(false)
+    }
+  }
+
   if (loading) {
     return <p class="loading">Loading goals…</p>
   }
@@ -141,31 +169,54 @@ export function GoalsView({ userId }) {
         </div>
       )}
 
-      <form class="weight-log-form" onSubmit={handleLogWeight}>
-        <label for="weight-input">
-          Today's weight (kg)
-          {latestWeight && (
-            <span class="latest-weight">
-              {' '}
-              — last logged {latestWeight.weight_kg}kg on {latestWeight.date}
-            </span>
-          )}
-        </label>
-        <div class="weight-log-row">
-          <input
-            id="weight-input"
-            type="number"
-            step="0.1"
-            min="0"
-            placeholder="kg"
-            value={weightInput}
-            onInput={(event) => setWeightInput(event.currentTarget.value)}
-          />
-          <button type="submit" disabled={loggingWeight}>
-            Log weight
-          </button>
-        </div>
-      </form>
+      <div class="today-metrics">
+        <form class="weight-log-form" onSubmit={handleLogWeight}>
+          <label for="weight-input">
+            Today's weight (kg)
+            {latestWeight && (
+              <span class="latest-weight">
+                {' '}
+                — last logged {latestWeight.weight_kg}kg on {latestWeight.date}
+              </span>
+            )}
+          </label>
+          <div class="weight-log-row">
+            <input
+              id="weight-input"
+              type="number"
+              step="0.1"
+              min="0"
+              placeholder="kg"
+              value={weightInput}
+              onInput={(event) => setWeightInput(event.currentTarget.value)}
+            />
+            <button type="submit" disabled={loggingWeight}>
+              Log weight
+            </button>
+          </div>
+        </form>
+
+        <form class="steps-log-form" onSubmit={handleLogSteps}>
+          <label for="steps-input">
+            Today's steps
+            {todaySteps && <span class="latest-weight"> — logged {todaySteps.steps.toLocaleString()}</span>}
+          </label>
+          <div class="weight-log-row">
+            <input
+              id="steps-input"
+              type="number"
+              step="1"
+              min="0"
+              placeholder="steps"
+              value={stepsInput}
+              onInput={(event) => setStepsInput(event.currentTarget.value)}
+            />
+            <button type="submit" disabled={loggingSteps}>
+              Log steps
+            </button>
+          </div>
+        </form>
+      </div>
 
       <form class="goals-form" onSubmit={handleSave}>
         <label for="age">Age (years)</label>

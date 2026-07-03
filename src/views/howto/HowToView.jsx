@@ -12,7 +12,7 @@ const SECTIONS = [
     title: 'Nutrition',
     body: [
       'Log food manually, or snap a photo for an AI estimate — always review the numbers before saving, since photo estimates are a starting point, not gospel.',
-      "See today's calories against your daily target (from Goals), plus today's step count and an estimated calorie burn from walking, synced via the Steps Bridge in Settings.",
+      "See today's calories against your daily target (from Goals), plus today's step count and an estimated calorie burn from walking, logged manually in Goals.",
     ],
   },
   {
@@ -32,6 +32,7 @@ const SECTIONS = [
     body: [
       'Enter your age, height, weight, and activity level to get your BMR, TDEE, and daily calorie target.',
       'Log your weight here whenever you check it — Nutrition and Today both use your most recent entry for calorie-burn math.',
+      "Log today's step count here too, from your phone's own step counter — Nutrition uses it for an estimated walking calorie burn.",
     ],
   },
   {
@@ -41,7 +42,6 @@ const SECTIONS = [
   {
     title: 'Settings',
     body: [
-      'Set up the Steps Bridge: an iOS Shortcut that syncs your daily step count into the app automatically (roughly hourly is recommended).',
       "The Danger Zone lets you permanently delete your own logged history by category — workouts, nutrition, weight, or steps — without touching your split days or goals.",
     ],
   },

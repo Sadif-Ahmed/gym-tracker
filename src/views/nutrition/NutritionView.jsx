@@ -11,21 +11,6 @@ import './nutrition.css'
 
 const MEAL_TYPES = ['Breakfast', 'Lunch', 'Dinner', 'Snack']
 
-// The bridge is set up to sync roughly hourly (Settings), so a gap much
-// longer than that means the automation stopped firing, not just that an
-// hour hasn't ticked over yet.
-const STALE_AFTER_HOURS = 2
-
-function formatStepsFreshness(syncedAt) {
-  const minutesAgo = Math.round((Date.now() - new Date(syncedAt).getTime()) / 60000)
-  if (minutesAgo < 60) return `Synced ${minutesAgo}m ago`
-  const hoursAgo = Math.round(minutesAgo / 60)
-  const stale = hoursAgo >= STALE_AFTER_HOURS ? ' — stale' : ''
-  if (hoursAgo < 24) return `Synced ${hoursAgo}h ago${stale}`
-  const daysAgo = Math.round(hoursAgo / 24)
-  return `Synced ${daysAgo}d ago — stale`
-}
-
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -192,11 +177,7 @@ export function NutritionView({ userId }) {
             <span class="num">{Math.round(stepCalories)}</span>
           </div>
         )}
-        <p class="steps-freshness">
-          {stepsToday
-            ? formatStepsFreshness(stepsToday.synced_at)
-            : 'Not synced yet today — set up the bridge in Settings.'}
-        </p>
+        {!stepsToday && <p class="steps-freshness">Not logged yet today — add it in Goals.</p>}
       </div>
 
       {entries.length === 0 ? (

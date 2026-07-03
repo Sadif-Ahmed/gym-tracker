@@ -325,21 +325,23 @@ function ExerciseRow({ exercise, onUpdate, onDelete }) {
               </option>
             ))}
           </select>
-          <div class="edit-exercise-row">
-            <input
-              type="number"
-              placeholder="sets"
-              value={defaultSets}
-              onInput={(e) => setDefaultSets(e.currentTarget.value)}
-              min="0"
-            />
-            <input
-              type="text"
-              placeholder="rep range (e.g. 8-12)"
-              value={defaultRepRange}
-              onInput={(e) => setDefaultRepRange(e.currentTarget.value)}
-            />
-          </div>
+          {!isCardio && (
+            <div class="edit-exercise-row">
+              <input
+                type="number"
+                placeholder="sets"
+                value={defaultSets}
+                onInput={(e) => setDefaultSets(e.currentTarget.value)}
+                min="0"
+              />
+              <input
+                type="text"
+                placeholder="rep range (e.g. 8-12)"
+                value={defaultRepRange}
+                onInput={(e) => setDefaultRepRange(e.currentTarget.value)}
+              />
+            </div>
+          )}
           <label class="cardio-toggle">
             <input
               type="checkbox"
@@ -420,21 +422,23 @@ function AddExerciseForm({ onAdd, onCancel }) {
           </option>
         ))}
       </select>
-      <div class="edit-exercise-row">
-        <input
-          type="number"
-          placeholder="sets"
-          value={defaultSets}
-          onInput={(event) => setDefaultSets(event.currentTarget.value)}
-          min="0"
-        />
-        <input
-          type="text"
-          placeholder="rep range (e.g. 8-12)"
-          value={defaultRepRange}
-          onInput={(event) => setDefaultRepRange(event.currentTarget.value)}
-        />
-      </div>
+      {!isCardio && (
+        <div class="edit-exercise-row">
+          <input
+            type="number"
+            placeholder="sets"
+            value={defaultSets}
+            onInput={(event) => setDefaultSets(event.currentTarget.value)}
+            min="0"
+          />
+          <input
+            type="text"
+            placeholder="rep range (e.g. 8-12)"
+            value={defaultRepRange}
+            onInput={(event) => setDefaultRepRange(event.currentTarget.value)}
+          />
+        </div>
+      )}
       <label class="cardio-toggle">
         <input
           type="checkbox"

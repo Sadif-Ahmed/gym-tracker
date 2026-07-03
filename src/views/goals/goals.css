@@ -40,15 +40,28 @@
   font-weight: 700;
 }
 
-.weight-log-form {
+.today-metrics {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.today-metrics > form {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.weight-log-form,
+.steps-log-form {
   background: var(--surface);
   border: 1px solid var(--iron-line);
   border-radius: 10px;
   padding: 16px;
-  margin-bottom: 20px;
 }
 
-.weight-log-form label {
+.weight-log-form label,
+.steps-log-form label {
   display: block;
   font-size: 13px;
   font-weight: 600;
