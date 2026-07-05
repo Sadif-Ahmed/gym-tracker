@@ -24,21 +24,24 @@
 }
 
 .calorie-summary {
-  display: flex;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px 12px;
   background: var(--surface);
   border: 1px solid var(--iron-line);
   border-radius: 10px;
   padding: 16px;
   margin-bottom: 20px;
-  align-items: center;
 }
 
 .calorie-summary > div {
-  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.calorie-summary .empty-state {
+  grid-column: 1 / -1;
 }
 
 .calorie-summary .num {
@@ -132,17 +135,32 @@
 .add-food-form {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 .add-food-form input,
-.add-food-form select {
+.add-food-form select,
+.add-food-form textarea {
   font: inherit;
   background: var(--surface);
   border: 1px solid var(--iron-line);
   border-radius: 8px;
   padding: 10px 12px;
   color: var(--chalk);
+  margin-bottom: 8px;
+}
+
+.add-food-form label {
+  font-size: 12px;
+  color: var(--chalk-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.field-source {
+  font-style: italic;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .macro-row {
@@ -150,9 +168,52 @@
   gap: 8px;
 }
 
-.macro-row input {
+.macro-field {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.macro-field input {
+  width: 100%;
+}
+
+.photo-describe {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.photo-preview {
+  max-width: 100%;
+  max-height: 240px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid var(--iron-line);
+}
+
+.photo-describe label {
+  font-size: 12px;
+  color: var(--chalk-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.field-hint {
+  text-transform: none;
+  letter-spacing: normal;
+  font-style: italic;
+}
+
+.photo-describe textarea {
+  font: inherit;
+  background: var(--surface);
+  border: 1px solid var(--iron-line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--chalk);
+  resize: vertical;
 }
 
 .add-food-actions {
@@ -192,6 +253,7 @@
 
 .food-add-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 

@@ -3,6 +3,7 @@ import { listFoodEntriesForDate, createFoodEntry, deleteFoodEntry } from '../../
 import { getUserGoal } from '../../data/userGoal.js'
 import { latestWeightEntry } from '../../data/weightEntries.js'
 import { getDailySteps } from '../../data/dailySteps.js'
+import { getSessionForDate } from '../../data/workoutSessions.js'
 import { todayISO } from '../../utils/dates.js'
 import { computeDailyTarget } from '../../utils/tdeeCalculator.js'
 import { stepsToCalories } from '../../utils/stepCalorieCalculator.js'
@@ -55,9 +56,14 @@ export function NutritionView({ userId }) {
   const [target, setTarget] = useState(null)
   const [stepsToday, setStepsToday] = useState(null)
   const [stepCalories, setStepCalories] = useState(0)
-  const [mode, setMode] = useState('closed') // closed | manual | estimating | review
+  const [exerciseCalories, setExerciseCalories] = useState(0)
+  const [mode, setMode] = useState('closed') // closed | manual | describe | estimating | review
   const [photoEstimate, setPhotoEstimate] = useState(null)
-  const fileInputRef = useRef(null)
+  const [photoFile, setPhotoFile] = useState(null)
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState(null)
+  const [photoDescription, setPhotoDescription] = useState('')
+  const cameraInputRef = useRef(null)
+  const galleryInputRef = useRef(null)
 
   const today = todayISO()
 
@@ -69,17 +75,19 @@ export function NutritionView({ userId }) {
     setLoading(true)
     setError(null)
     try {
-      const [foodEntries, goal, weight, steps] = await Promise.all([
+      const [foodEntries, goal, weight, steps, session] = await Promise.all([
         listFoodEntriesForDate(today),
         getUserGoal(),
         latestWeightEntry(),
         getDailySteps(today),
+        getSessionForDate(today),
       ])
       setEntries(foodEntries)
       const currentWeight = weight?.weight_kg ?? goal?.starting_weight_kg ?? null
       setTarget(computeDailyTarget(goal, currentWeight))
       setStepsToday(steps)
       setStepCalories(stepsToCalories(steps?.steps, currentWeight))
+      setExerciseCalories(session?.estimated_calories_burned ?? 0)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -92,17 +100,38 @@ export function NutritionView({ userId }) {
     event.target.value = ''
     if (!file) return
 
-    setMode('estimating')
     setError(null)
     try {
       const resized = await downscalePhoto(file)
-      const base64 = await fileToBase64(resized)
-      const estimate = await estimateFoodFromPhoto(base64)
+      setPhotoFile(resized)
+      setPhotoPreviewUrl(URL.createObjectURL(resized))
+      setMode('describe')
+    } catch (err) {
+      setError(err.message)
+      setMode('closed')
+    }
+  }
+
+  function resetPhotoFlow() {
+    if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl)
+    setPhotoFile(null)
+    setPhotoPreviewUrl(null)
+    setPhotoDescription('')
+  }
+
+  async function handleEstimate() {
+    setMode('estimating')
+    setError(null)
+    try {
+      const base64 = await fileToBase64(photoFile)
+      const estimate = await estimateFoodFromPhoto(base64, photoDescription.trim())
       setPhotoEstimate(estimate)
+      resetPhotoFlow()
       setMode('review')
     } catch (err) {
       setError(err.message)
       setMode('closed')
+      resetPhotoFlow()
     }
   }
 
@@ -133,7 +162,8 @@ export function NutritionView({ userId }) {
   }
 
   const totalCalories = entries.reduce((sum, entry) => sum + entry.calories, 0)
-  const remaining = target ? Math.round(target.targetCalories - totalCalories) : null
+  const targetDeficit = target ? target.tdee - target.targetCalories : null
+  const actualDeficit = target ? target.tdee + exerciseCalories + stepCalories - totalCalories : null
 
   return (
     <section class="nutrition-view">
@@ -146,23 +176,43 @@ export function NutritionView({ userId }) {
       <h1>Nutrition</h1>
 
       <div class="calorie-summary">
-        <div>
-          <span class="eyebrow">Consumed</span>
-          <span class="num">{totalCalories}</span>
-        </div>
         {target ? (
           <>
             <div>
-              <span class="eyebrow">Target</span>
+              <span class="eyebrow">Target Calorie Consumption</span>
               <span class="num">{Math.round(target.targetCalories)}</span>
             </div>
             <div>
-              <span class="eyebrow">Remaining</span>
-              <span class={`num${remaining < 0 ? ' over' : ''}`}>{remaining}</span>
+              <span class="eyebrow">Total Calories Consumed</span>
+              <span class="num">{totalCalories}</span>
+            </div>
+            <div>
+              <span class="eyebrow">Calories Burned (Exercise)</span>
+              <span class="num">{Math.round(exerciseCalories)}</span>
+            </div>
+            <div>
+              <span class="eyebrow">Calories Burned (Steps)</span>
+              <span class="num">{Math.round(stepCalories)}</span>
+            </div>
+            <div>
+              <span class="eyebrow">Actual Deficit</span>
+              <span class={`num${actualDeficit < targetDeficit ? ' over' : ''}`}>
+                {Math.round(actualDeficit)}
+              </span>
+            </div>
+            <div>
+              <span class="eyebrow">Target Deficit</span>
+              <span class="num">{Math.round(targetDeficit)}</span>
             </div>
           </>
         ) : (
-          <p class="empty-state">Set up your goals to see a daily target.</p>
+          <>
+            <div>
+              <span class="eyebrow">Total Calories Consumed</span>
+              <span class="num">{totalCalories}</span>
+            </div>
+            <p class="empty-state">Set up your goals to see a daily target.</p>
+          </>
         )}
       </div>
 
@@ -171,12 +221,6 @@ export function NutritionView({ userId }) {
           <span class="eyebrow">Steps today</span>
           <span class="num">{stepsToday ? stepsToday.steps.toLocaleString() : '—'}</span>
         </div>
-        {stepsToday && (
-          <div>
-            <span class="eyebrow">Est. calories</span>
-            <span class="num">{Math.round(stepCalories)}</span>
-          </div>
-        )}
         {!stepsToday && <p class="steps-freshness">Not logged yet today — add it in Goals.</p>}
       </div>
 
@@ -208,7 +252,14 @@ export function NutritionView({ userId }) {
         type="file"
         accept="image/*"
         capture="environment"
-        ref={fileInputRef}
+        ref={cameraInputRef}
+        class="sr-only"
+        onChange={handlePhotoSelected}
+      />
+      <input
+        type="file"
+        accept="image/*"
+        ref={galleryInputRef}
         class="sr-only"
         onChange={handlePhotoSelected}
       />
@@ -218,9 +269,42 @@ export function NutritionView({ userId }) {
           <button type="button" class="add-food-button" onClick={() => setMode('manual')}>
             + Log food
           </button>
-          <button type="button" class="add-food-button" onClick={() => fileInputRef.current?.click()}>
-            📷 Estimate from photo
+          <button type="button" class="add-food-button" onClick={() => cameraInputRef.current?.click()}>
+            📷 Take photo
           </button>
+          <button type="button" class="add-food-button" onClick={() => galleryInputRef.current?.click()}>
+            🖼️ Upload from gallery
+          </button>
+        </div>
+      )}
+
+      {mode === 'describe' && (
+        <div class="photo-describe">
+          {photoPreviewUrl && <img src={photoPreviewUrl} alt="Selected food" class="photo-preview" />}
+          <label for="photo-description">
+            Description (optional) <span class="field-hint">helps the estimate — portion size, ingredients, etc.</span>
+          </label>
+          <textarea
+            id="photo-description"
+            placeholder="e.g. grilled chicken breast, about 200g, no sauce"
+            value={photoDescription}
+            onInput={(event) => setPhotoDescription(event.currentTarget.value)}
+            rows={2}
+          />
+          <div class="add-food-actions">
+            <button type="button" onClick={handleEstimate}>
+              Get estimate
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                resetPhotoFlow()
+                setMode('closed')
+              }}
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       )}
 
@@ -272,57 +356,80 @@ function AddFoodForm({ onAdd, onCancel, initialValues, source = 'manual' }) {
     })
   }
 
+  const isEstimated = source === 'llm_photo'
+  const sourceTag = (label) => (
+    <>
+      {label} <span class="field-source">{isEstimated ? 'estimated' : 'manual'}</span>
+    </>
+  )
+
   return (
     <form class="add-food-form" onSubmit={handleSubmit}>
-      {source === 'llm_photo' && (
-        <p class="estimate-note">Estimated from your photo — review and adjust before saving.</p>
-      )}
+      {isEstimated && <p class="estimate-note">Estimated from your photo — review and adjust before saving.</p>}
+      <label for="food-name">{sourceTag('Food name')}</label>
       <input
+        id="food-name"
         type="text"
         placeholder="Food name"
         value={name}
         onInput={(event) => setName(event.currentTarget.value)}
         autofocus
       />
-      <select value={mealType} onChange={(event) => setMealType(event.currentTarget.value)}>
+      <label for="food-meal-type">Meal</label>
+      <select id="food-meal-type" value={mealType} onChange={(event) => setMealType(event.currentTarget.value)}>
         {MEAL_TYPES.map((type) => (
           <option key={type} value={type}>
             {type}
           </option>
         ))}
       </select>
+      <label for="food-calories">{sourceTag('Calories')}</label>
       <input
+        id="food-calories"
         type="number"
         placeholder="Calories"
         value={calories}
         onInput={(event) => setCalories(event.currentTarget.value)}
         min="0"
+        step="1"
       />
       <div class="macro-row">
-        <input
-          type="number"
-          placeholder="Protein (g)"
-          value={protein}
-          onInput={(event) => setProtein(event.currentTarget.value)}
-          min="0"
-        />
-        <input
-          type="number"
-          placeholder="Carbs (g)"
-          value={carbs}
-          onInput={(event) => setCarbs(event.currentTarget.value)}
-          min="0"
-        />
-        <input
-          type="number"
-          placeholder="Fat (g)"
-          value={fat}
-          onInput={(event) => setFat(event.currentTarget.value)}
-          min="0"
-        />
+        <div class="macro-field">
+          <label for="food-protein">{sourceTag('Protein (g)')}</label>
+          <input
+            id="food-protein"
+            type="number"
+            placeholder="Protein (g)"
+            value={protein}
+            onInput={(event) => setProtein(event.currentTarget.value)}
+            min="0"
+          />
+        </div>
+        <div class="macro-field">
+          <label for="food-carbs">{sourceTag('Carbs (g)')}</label>
+          <input
+            id="food-carbs"
+            type="number"
+            placeholder="Carbs (g)"
+            value={carbs}
+            onInput={(event) => setCarbs(event.currentTarget.value)}
+            min="0"
+          />
+        </div>
+        <div class="macro-field">
+          <label for="food-fat">{sourceTag('Fat (g)')}</label>
+          <input
+            id="food-fat"
+            type="number"
+            placeholder="Fat (g)"
+            value={fat}
+            onInput={(event) => setFat(event.currentTarget.value)}
+            min="0"
+          />
+        </div>
       </div>
       <div class="add-food-actions">
-        <button type="submit">{source === 'llm_photo' ? 'Save' : 'Add'}</button>
+        <button type="submit">{isEstimated ? 'Save' : 'Add'}</button>
         <button type="button" onClick={onCancel}>
           Cancel
         </button>

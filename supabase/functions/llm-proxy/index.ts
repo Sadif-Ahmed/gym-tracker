@@ -16,7 +16,9 @@ const DAILY_CALL_CAP = 15
 // came back "DEGRADED" for this key despite being listed - and (b) honor
 // response_format json_schema rather than silently ignoring it and
 // returning prose (meta/llama-3.2-11b-vision-instruct does this; dropped).
-const VISION_MODEL_POOL = ['nvidia/nemotron-nano-12b-v2-vl', 'meta/llama-3.2-90b-vision-instruct']
+// 90b goes first now - it's the strongest of the two verified models;
+// nemotron-nano is the fast/small fallback if 90b fails or times out.
+const VISION_MODEL_POOL = ['meta/llama-3.2-90b-vision-instruct', 'nvidia/nemotron-nano-12b-v2-vl']
 
 const TEXT_MODEL_POOL = ['meta/llama-3.1-8b-instruct', 'meta/llama-3.1-70b-instruct']
 
@@ -135,11 +137,13 @@ async function callNvidiaWithFallback(
   throw lastError ?? new Error('All models failed')
 }
 
-async function estimateFoodPhoto(apiKey: string, imageBase64: string | undefined) {
+async function estimateFoodPhoto(apiKey: string, imageBase64: string | undefined, description?: string) {
   if (!imageBase64) throw new Error('imageBase64 is required')
   const system =
     'You are a nutrition estimation assistant. Look at the photo of food and estimate its name and nutritional content as a single serving. Be realistic, not overly precise - round to sensible values. Respond only with the requested JSON.'
-  const user = 'Estimate the calories and macros (protein, carbs, fat in grams) for the food shown in this photo.'
+  const user = description
+    ? `Estimate the calories and macros (protein, carbs, fat in grams) for the food shown in this photo. The user also describes it as: "${description}" - use that to refine portion size, ingredients, or preparation the photo alone doesn't make clear.`
+    : 'Estimate the calories and macros (protein, carbs, fat in grams) for the food shown in this photo.'
   return callNvidiaWithFallback(apiKey, VISION_MODEL_POOL, system, user, imageBase64, FOOD_SCHEMA)
 }
 
@@ -226,7 +230,8 @@ Deno.serve(async (req) => {
   try {
     let result: unknown
     if (body.action === 'estimate_food_photo') {
-      result = await estimateFoodPhoto(nvidiaApiKey, body.imageBase64 as string | undefined)
+      const description = (body.description as string | undefined)?.slice(0, 300)
+      result = await estimateFoodPhoto(nvidiaApiKey, body.imageBase64 as string | undefined, description)
     } else if (body.action === 'classify_exercise_met') {
       result = await classifyExerciseMet(nvidiaApiKey, body as never)
     } else {

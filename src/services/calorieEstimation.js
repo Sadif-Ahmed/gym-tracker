@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabaseClient.js'
 // nothing is uploaded to storage or persisted, per Section 9 of the plan.
 // Caller is responsible for review-before-save: this only returns an
 // estimate, it never writes to food_entries itself.
-export async function estimateFoodFromPhoto(imageBase64) {
+export async function estimateFoodFromPhoto(imageBase64, description) {
   const {
     data: { session },
   } = await supabase.auth.getSession()
@@ -16,7 +16,7 @@ export async function estimateFoodFromPhoto(imageBase64) {
       Authorization: `Bearer ${session.access_token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ action: 'estimate_food_photo', imageBase64 }),
+    body: JSON.stringify({ action: 'estimate_food_photo', imageBase64, description: description || undefined }),
   })
 
   const body = await resp.json()
