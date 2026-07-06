@@ -9,11 +9,12 @@ import {
   listWorkoutSessionsBefore,
 } from '../../data/workoutSessions.js'
 import { listSetEntries, createSetEntry, deleteSetEntry } from '../../data/setEntries.js'
-import { updateExercise } from '../../data/exercises.js'
+import { createExercise, updateExercise } from '../../data/exercises.js'
 import { latestWeightEntry } from '../../data/weightEntries.js'
 import { classifyExerciseMet } from '../../services/exerciseCalorieBurn.js'
 import { computeSessionCalorieBurn } from '../../utils/calorieBurnCalculator.js'
 import { groupSetsByExercise, formatSet } from '../../utils/workoutSummary.js'
+import { MUSCLE_GROUPS } from '../../utils/muscleGroups.js'
 import './today.css'
 
 const RECENT_HISTORY_LIMIT = 3
@@ -34,6 +35,7 @@ export function TodayView({ userId }) {
   const [splitDays, setSplitDays] = useState([])
   const [session, setSession] = useState(null)
   const [exercises, setExercises] = useState([])
+  const [libraryExercises, setLibraryExercises] = useState([])
   const [setsByExercise, setSetsByExercise] = useState({})
   const [bodyweightKg, setBodyweightKg] = useState(null)
   const [burnEstimate, setBurnEstimate] = useState(null)
@@ -81,11 +83,11 @@ export function TodayView({ userId }) {
 
   async function loadSessionData(activeSession) {
     setSession(activeSession)
-    const [exerciseList, sets] = await Promise.all([
-      listExercises({ splitDayId: activeSession.split_day_id }),
+    const [library, sets] = await Promise.all([
+      listExercises(),
       listSetEntries(activeSession.id),
     ])
-    setExercises(exerciseList)
+    setLibraryExercises(library)
 
     const grouped = {}
     for (const set of sets) {
@@ -94,6 +96,14 @@ export function TodayView({ userId }) {
       grouped[key].push(set)
     }
     setSetsByExercise(grouped)
+
+    // Anything with logged sets for this session counts, even if it belongs
+    // to a different split (or no split) - keeps extra exercises across reloads.
+    const splitAssigned = library.filter((e) => e.split_day_id === activeSession.split_day_id)
+    const extraUsed = library.filter(
+      (e) => e.split_day_id !== activeSession.split_day_id && grouped[e.id]?.length > 0
+    )
+    setExercises([...splitAssigned, ...extraUsed])
   }
 
   async function handleStartWorkout(splitDay) {
@@ -117,7 +127,7 @@ export function TodayView({ userId }) {
     if (
       hasLoggedSets &&
       !window.confirm(
-        `Switch today's workout to ${splitDay.name}? Sets already logged for exercises outside this split stay saved, but won't show here.`
+        `Switch today's workout to ${splitDay.name}? Sets already logged for other exercises will still show here as extra exercises.`
       )
     ) {
       return
@@ -182,6 +192,28 @@ export function TodayView({ userId }) {
         ...prev,
         [exercise.id]: (prev[exercise.id] ?? []).filter((s) => s.id !== setEntry.id),
       }))
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  function handleAddExtraExercise(exercise) {
+    setExercises((prev) => (prev.some((e) => e.id === exercise.id) ? prev : [...prev, exercise]))
+  }
+
+  async function handleCreateExtraExercise(values) {
+    setError(null)
+    try {
+      const created = await createExercise({
+        userId,
+        splitDayId: null,
+        name: values.name,
+        muscleGroup: values.muscleGroup,
+        isCardio: values.isCardio,
+        sortOrder: 0,
+      })
+      setLibraryExercises((prev) => [...prev, created])
+      setExercises((prev) => [...prev, created])
     } catch (err) {
       setError(err.message)
     }
@@ -274,9 +306,12 @@ export function TodayView({ userId }) {
         <WorkoutLog
           session={session}
           exercises={exercises}
+          libraryExercises={libraryExercises}
           setsByExercise={setsByExercise}
           onLogSet={handleLogSet}
           onDeleteSet={handleDeleteSet}
+          onAddExtraExercise={handleAddExtraExercise}
+          onCreateExtraExercise={handleCreateExtraExercise}
           onFinish={handleFinishWorkout}
           onChangeSplit={() => setChangingSplit(true)}
           burnEstimate={burnEstimate}
@@ -359,9 +394,12 @@ function SplitDayPicker({ splitDays, date, onPick }) {
 function WorkoutLog({
   session,
   exercises,
+  libraryExercises,
   setsByExercise,
   onLogSet,
   onDeleteSet,
+  onAddExtraExercise,
+  onCreateExtraExercise,
   onFinish,
   onChangeSplit,
   burnEstimate,
@@ -372,6 +410,9 @@ function WorkoutLog({
   onSaveBurn,
   onDiscardBurn,
 }) {
+  const splitExercises = exercises.filter((e) => e.split_day_id === session.split_day_id)
+  const extraExercises = exercises.filter((e) => e.split_day_id !== session.split_day_id)
+
   return (
     <div class="workout-log">
       <header class="workout-log-header">
@@ -391,10 +432,10 @@ function WorkoutLog({
 
       {session.end_time && <p class="finished-note">Finished — logged and in the books.</p>}
 
-      {exercises.length === 0 ? (
+      {splitExercises.length === 0 ? (
         <p class="empty-state">No exercises assigned to this split day yet.</p>
       ) : (
-        exercises.map((exercise) => (
+        splitExercises.map((exercise) => (
           <ExerciseLedger
             key={exercise.id}
             exercise={exercise}
@@ -404,6 +445,28 @@ function WorkoutLog({
           />
         ))
       )}
+
+      {extraExercises.length > 0 && (
+        <>
+          <p class="eyebrow exercise-group-heading">Extra exercises</p>
+          {extraExercises.map((exercise) => (
+            <ExerciseLedger
+              key={exercise.id}
+              exercise={exercise}
+              sets={setsByExercise[exercise.id] ?? []}
+              onLogSet={(values) => onLogSet(exercise, values)}
+              onDeleteSet={(setEntry) => onDeleteSet(exercise, setEntry)}
+            />
+          ))}
+        </>
+      )}
+
+      <AddExtraExercisePanel
+        shownExercises={exercises}
+        libraryExercises={libraryExercises}
+        onAdd={onAddExtraExercise}
+        onCreate={onCreateExtraExercise}
+      />
 
       {session.end_time && (
         <BurnEstimateSection
@@ -418,6 +481,111 @@ function WorkoutLog({
         />
       )}
     </div>
+  )
+}
+
+const NEW_EXERCISE_OPTION = '__new__'
+
+function AddExtraExercisePanel({ shownExercises, libraryExercises, onAdd, onCreate }) {
+  const [open, setOpen] = useState(false)
+  const [selectedId, setSelectedId] = useState('')
+  const [name, setName] = useState('')
+  const [muscleGroup, setMuscleGroup] = useState(MUSCLE_GROUPS[0])
+  const [isCardio, setIsCardio] = useState(false)
+
+  const shownIds = new Set(shownExercises.map((e) => e.id))
+  const pickable = libraryExercises.filter((e) => !shownIds.has(e.id))
+
+  function reset() {
+    setOpen(false)
+    setSelectedId('')
+    setName('')
+    setMuscleGroup(MUSCLE_GROUPS[0])
+    setIsCardio(false)
+  }
+
+  function handleSelect(event) {
+    const value = event.currentTarget.value
+    setSelectedId(value)
+    if (value && value !== NEW_EXERCISE_OPTION) {
+      const exercise = pickable.find((e) => e.id === value)
+      if (exercise) onAdd(exercise)
+      reset()
+    }
+  }
+
+  function handleCreateSubmit(event) {
+    event.preventDefault()
+    const trimmedName = name.trim()
+    if (!trimmedName) return
+    onCreate({ name: trimmedName, muscleGroup, isCardio })
+    reset()
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        class="add-extra-exercise-toggle"
+        onClick={() => setOpen(true)}
+      >
+        + Add exercise
+      </button>
+    )
+  }
+
+  return (
+    <section class="add-extra-exercise">
+      <form class="log-set-form">
+        <select value={selectedId} onChange={handleSelect}>
+          <option value="" disabled>
+            Choose an exercise…
+          </option>
+          {pickable.map((exercise) => (
+            <option key={exercise.id} value={exercise.id}>
+              {exercise.name}
+            </option>
+          ))}
+          <option value={NEW_EXERCISE_OPTION}>+ New exercise…</option>
+        </select>
+        <button type="button" onClick={reset}>
+          Cancel
+        </button>
+      </form>
+
+      {selectedId === NEW_EXERCISE_OPTION && (
+        <form class="add-extra-exercise-form" onSubmit={handleCreateSubmit}>
+          <input
+            type="text"
+            placeholder="Exercise name"
+            value={name}
+            onInput={(event) => setName(event.currentTarget.value)}
+            autofocus
+          />
+          <select value={muscleGroup} onChange={(event) => setMuscleGroup(event.currentTarget.value)}>
+            {MUSCLE_GROUPS.map((group) => (
+              <option key={group} value={group}>
+                {group}
+              </option>
+            ))}
+          </select>
+          <label class="cardio-toggle">
+            <input
+              type="checkbox"
+              checked={isCardio}
+              onChange={(event) => setIsCardio(event.currentTarget.checked)}
+            />
+            Cardio (log time instead of weight/reps)
+          </label>
+          <div class="add-extra-exercise-actions">
+            <button type="submit">Add</button>
+            <button type="button" onClick={reset}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+    </section>
   )
 }
 

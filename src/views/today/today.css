@@ -196,7 +196,8 @@
   gap: 8px;
 }
 
-.log-set-form input {
+.log-set-form input,
+.log-set-form select {
   font: inherit;
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
@@ -231,6 +232,49 @@
 
 .log-set-form button:hover {
   border-color: var(--plate-red);
+}
+
+.exercise-group-heading {
+  margin: 24px 0 10px;
+}
+
+.add-extra-exercise-toggle {
+  margin-top: 20px;
+}
+
+.add-extra-exercise {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--iron-line);
+}
+
+.add-extra-exercise-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.add-extra-exercise-form select {
+  font: inherit;
+  background: var(--surface);
+  border: 1px solid var(--iron-line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--chalk);
+}
+
+.add-extra-exercise-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.cardio-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--chalk-dim);
 }
 
 .burn-estimate-section {
@@ -303,7 +347,8 @@
 
 .burn-review-row button,
 .burn-saved-row button,
-.estimate-burn-button {
+.estimate-burn-button,
+.add-extra-exercise-toggle {
   font: inherit;
   font-weight: 700;
   font-size: 14px;
@@ -316,13 +361,15 @@
   flex-shrink: 0;
 }
 
-.estimate-burn-button {
+.estimate-burn-button,
+.add-extra-exercise-toggle {
   width: 100%;
 }
 
 .burn-review-row button:hover,
 .burn-saved-row button:hover,
-.estimate-burn-button:hover {
+.estimate-burn-button:hover,
+.add-extra-exercise-toggle:hover {
   border-color: var(--plate-red);
 }
 

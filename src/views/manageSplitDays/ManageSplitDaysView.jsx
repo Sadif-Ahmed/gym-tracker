@@ -1,11 +1,8 @@
 import { useEffect, useState } from 'preact/hooks'
 import { listSplitDays, createSplitDay, updateSplitDay, deleteSplitDay } from '../../data/splitDays.js'
 import { listExercises, createExercise, updateExercise, deleteExercise } from '../../data/exercises.js'
+import { MUSCLE_GROUPS } from '../../utils/muscleGroups.js'
 import './manageSplitDays.css'
-
-const MUSCLE_GROUPS = [
-  'Chest', 'Back', 'Shoulders', 'Legs', 'Biceps', 'Triceps', 'Calves', 'Core', 'Cardio', 'Other',
-]
 
 export function ManageSplitDaysView({ userId }) {
   const [loading, setLoading] = useState(true)
