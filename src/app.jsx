@@ -6,6 +6,7 @@ import { ResetPasswordView } from './auth/ResetPasswordView.jsx'
 import { seedFirstLogin } from './data/firstLoginSeed.js'
 import { TodayView } from './views/today/TodayView.jsx'
 import { ManageSplitDaysView } from './views/manageSplitDays/ManageSplitDaysView.jsx'
+import { PlansView } from './views/plans/PlansView.jsx'
 import { HistoryView } from './views/history/HistoryView.jsx'
 import { ProgressView } from './views/progress/ProgressView.jsx'
 import { NutritionView } from './views/nutrition/NutritionView.jsx'
@@ -22,6 +23,7 @@ const TABS = [
   { id: 'progress', label: 'Progress' },
   { id: 'goals', label: 'Goals' },
   { id: 'splits', label: 'Split Days' },
+  { id: 'plans', label: 'Plans' },
   { id: 'settings', label: 'Settings' },
   { id: 'howto', label: 'How To Use' },
 ]
@@ -90,6 +92,7 @@ export function App() {
           {activeTab === 'progress' && <ProgressView />}
           {activeTab === 'goals' && <GoalsView userId={session.user.id} />}
           {activeTab === 'splits' && <ManageSplitDaysView userId={session.user.id} />}
+          {activeTab === 'plans' && <PlansView userId={session.user.id} />}
           {activeTab === 'settings' && <SettingsView userId={session.user.id} />}
           {activeTab === 'howto' && <HowToView />}
         </main>

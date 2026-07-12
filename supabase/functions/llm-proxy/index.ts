@@ -47,6 +47,44 @@ const MET_SCHEMA = {
   required: ['met_value'],
 }
 
+const MUSCLE_GROUPS = ['Chest', 'Back', 'Shoulders', 'Legs', 'Biceps', 'Triceps', 'Calves', 'Core', 'Cardio', 'Other']
+
+// defaultSets/defaultRepRange use 0/"" for "not applicable" rather than
+// null - strict json_schema mode across model providers is unreliable
+// about nullable types, but every model handles plain string/integer fine.
+const PLAN_SCHEMA = {
+  type: 'object',
+  properties: {
+    name: { type: 'string' },
+    description: { type: 'string' },
+    days: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          exercises: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                name: { type: 'string' },
+                muscleGroup: { type: 'string', enum: MUSCLE_GROUPS },
+                defaultSets: { type: 'integer' },
+                defaultRepRange: { type: 'string' },
+                isCardio: { type: 'boolean' },
+              },
+              required: ['name', 'muscleGroup', 'defaultSets', 'defaultRepRange', 'isCardio'],
+            },
+          },
+        },
+        required: ['name', 'exercises'],
+      },
+    },
+  },
+  required: ['name', 'description', 'days'],
+}
+
 // Browsers preflight any cross-origin request carrying an Authorization
 // header, and Supabase's hosted Edge Function gateway (unlike the local
 // dev one) doesn't add CORS headers for you - the function must handle
@@ -72,7 +110,8 @@ async function callNvidiaOnce(
   systemPrompt: string,
   userPrompt: string,
   imageBase64: string | undefined,
-  schema: object
+  schema: object,
+  options: { maxTokens?: number; timeoutMs?: number } = {}
 ) {
   const content: Record<string, unknown>[] = [{ type: 'text', text: userPrompt }]
   if (imageBase64) {
@@ -86,7 +125,7 @@ async function callNvidiaOnce(
       { role: 'user', content },
     ],
     temperature: 0.1,
-    max_tokens: 1024,
+    max_tokens: options.maxTokens ?? 1024,
     response_format: {
       type: 'json_schema',
       json_schema: { name: 'estimate', strict: true, schema },
@@ -100,7 +139,7 @@ async function callNvidiaOnce(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(requestBody),
-    signal: AbortSignal.timeout(PER_MODEL_TIMEOUT_MS),
+    signal: AbortSignal.timeout(options.timeoutMs ?? PER_MODEL_TIMEOUT_MS),
   })
 
   if (!resp.ok) {
@@ -123,12 +162,13 @@ async function callNvidiaWithFallback(
   systemPrompt: string,
   userPrompt: string,
   imageBase64: string | undefined,
-  schema: object
+  schema: object,
+  options: { maxTokens?: number; timeoutMs?: number } = {}
 ) {
   let lastError: Error | null = null
   for (const model of modelPool) {
     try {
-      return await callNvidiaOnce(apiKey, model, systemPrompt, userPrompt, imageBase64, schema)
+      return await callNvidiaOnce(apiKey, model, systemPrompt, userPrompt, imageBase64, schema, options)
     } catch (err) {
       lastError = err as Error
       continue
@@ -165,6 +205,32 @@ async function classifyExerciseMet(
     isCardio ? 'cardio' : 'strength/resistance'
   }. Give a realistic MET value for this exercise.`
   return callNvidiaWithFallback(apiKey, TEXT_MODEL_POOL, system, user, undefined, MET_SCHEMA)
+}
+
+const MAX_PLAN_MARKDOWN_CHARS = 20_000
+
+// Turns a user-supplied training-plan document (markdown or plain text)
+// into the same { name, description, days: [{ name, exercises }] } shape
+// as the built-in library plans (src/data/planLibrary.js), so the client
+// can preview and apply it through the exact same code path.
+async function parseTrainingPlan(apiKey: string, markdown: string | undefined) {
+  if (!markdown || !markdown.trim()) throw new Error('markdown is required')
+  const trimmed = markdown.slice(0, MAX_PLAN_MARKDOWN_CHARS)
+
+  const system =
+    'You convert a user-supplied gym training plan document (markdown or plain text) into structured JSON. ' +
+    'Extract each distinct training day (skip rest days - only include days that have exercises) and every exercise listed for it. ' +
+    `For each exercise, pick the single best-fitting muscleGroup from this exact list: ${MUSCLE_GROUPS.join(', ')}. ` +
+    'Set isCardio to true only for cardio/conditioning work (running, cycling, rowing, elliptical, walking, finishers measured in time) rather than weighted sets. ' +
+    'For strength exercises, set defaultSets to the number of sets (as an integer) and defaultRepRange to the rep range or rep target as written (e.g. "8-12" or "max reps"). ' +
+    'For cardio exercises, or if the document does not specify sets/reps for an exercise, set defaultSets to 0 and defaultRepRange to "" - never invent numbers that are not in the document. ' +
+    'Give the overall plan a short name and one-sentence description summarizing its structure. Respond only with the requested JSON.'
+  const user = `Training plan document:\n\n${trimmed}`
+
+  return callNvidiaWithFallback(apiKey, TEXT_MODEL_POOL, system, user, undefined, PLAN_SCHEMA, {
+    maxTokens: 4096,
+    timeoutMs: 60_000,
+  })
 }
 
 Deno.serve(async (req) => {
@@ -234,6 +300,8 @@ Deno.serve(async (req) => {
       result = await estimateFoodPhoto(nvidiaApiKey, body.imageBase64 as string | undefined, description)
     } else if (body.action === 'classify_exercise_met') {
       result = await classifyExerciseMet(nvidiaApiKey, body as never)
+    } else if (body.action === 'parse_training_plan') {
+      result = await parseTrainingPlan(nvidiaApiKey, body.markdown as string | undefined)
     } else {
       return json({ error: 'Unknown action' }, 400)
     }

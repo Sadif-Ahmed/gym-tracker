@@ -118,6 +118,7 @@ export function ManageSplitDaysView({ userId }) {
         defaultSets: values.defaultSets,
         defaultRepRange: values.defaultRepRange,
         isCardio: values.isCardio,
+        noMetrics: values.noMetrics,
         sortOrder: existing.length,
       })
       setExercisesByDay((prev) => ({ ...prev, [day.id]: [...(prev[day.id] ?? []), created] }))
@@ -297,6 +298,7 @@ function ExerciseRow({ exercise, onUpdate, onDelete }) {
   const [defaultSets, setDefaultSets] = useState(exercise.default_sets ?? '')
   const [defaultRepRange, setDefaultRepRange] = useState(exercise.default_rep_range ?? '')
   const [isCardio, setIsCardio] = useState(exercise.is_cardio)
+  const [noMetrics, setNoMetrics] = useState(exercise.no_metrics)
 
   function handleSave(event) {
     event.preventDefault()
@@ -306,6 +308,7 @@ function ExerciseRow({ exercise, onUpdate, onDelete }) {
       default_sets: defaultSets === '' ? null : Number(defaultSets),
       default_rep_range: defaultRepRange || null,
       is_cardio: isCardio,
+      no_metrics: noMetrics,
     })
     setEditing(false)
   }
@@ -322,7 +325,7 @@ function ExerciseRow({ exercise, onUpdate, onDelete }) {
               </option>
             ))}
           </select>
-          {!isCardio && (
+          {!isCardio && !noMetrics && (
             <div class="edit-exercise-row">
               <input
                 type="number"
@@ -347,6 +350,14 @@ function ExerciseRow({ exercise, onUpdate, onDelete }) {
             />
             Cardio (log time instead of weight/reps)
           </label>
+          <label class="cardio-toggle">
+            <input
+              type="checkbox"
+              checked={noMetrics}
+              onChange={(e) => setNoMetrics(e.currentTarget.checked)}
+            />
+            No metrics (just mark done/undone — e.g. warm-up drills)
+          </label>
           <div class="edit-exercise-actions">
             <button type="submit">Save</button>
             <button type="button" onClick={() => setEditing(false)}>
@@ -364,11 +375,13 @@ function ExerciseRow({ exercise, onUpdate, onDelete }) {
         <span class="exercise-name">{exercise.name}</span>
         <span class="exercise-meta">
           {exercise.muscle_group}
-          {exercise.is_cardio
-            ? ' · cardio'
-            : exercise.default_sets || exercise.default_rep_range
-              ? ` · ${exercise.default_sets ?? '—'}×${exercise.default_rep_range ?? '—'}`
-              : ''}
+          {exercise.no_metrics
+            ? ' · done/undone'
+            : exercise.is_cardio
+              ? ' · cardio'
+              : exercise.default_sets || exercise.default_rep_range
+                ? ` · ${exercise.default_sets ?? '—'}×${exercise.default_rep_range ?? '—'}`
+                : ''}
         </span>
       </div>
       <button
@@ -389,6 +402,7 @@ function AddExerciseForm({ onAdd, onCancel }) {
   const [defaultSets, setDefaultSets] = useState('')
   const [defaultRepRange, setDefaultRepRange] = useState('')
   const [isCardio, setIsCardio] = useState(false)
+  const [noMetrics, setNoMetrics] = useState(false)
 
   function handleSubmit(event) {
     event.preventDefault()
@@ -400,6 +414,7 @@ function AddExerciseForm({ onAdd, onCancel }) {
       defaultSets: defaultSets === '' ? null : Number(defaultSets),
       defaultRepRange: defaultRepRange || null,
       isCardio,
+      noMetrics,
     })
   }
 
@@ -419,7 +434,7 @@ function AddExerciseForm({ onAdd, onCancel }) {
           </option>
         ))}
       </select>
-      {!isCardio && (
+      {!isCardio && !noMetrics && (
         <div class="edit-exercise-row">
           <input
             type="number"
@@ -443,6 +458,14 @@ function AddExerciseForm({ onAdd, onCancel }) {
           onChange={(event) => setIsCardio(event.currentTarget.checked)}
         />
         Cardio (log time instead of weight/reps)
+      </label>
+      <label class="cardio-toggle">
+        <input
+          type="checkbox"
+          checked={noMetrics}
+          onChange={(event) => setNoMetrics(event.currentTarget.checked)}
+        />
+        No metrics (just mark done/undone — e.g. warm-up drills)
       </label>
       <div class="edit-exercise-actions">
         <button type="submit">Add</button>

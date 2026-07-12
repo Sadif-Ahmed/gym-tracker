@@ -20,6 +20,7 @@ export async function createExercise({
   defaultSets = null,
   defaultRepRange = null,
   isCardio = false,
+  noMetrics = false,
   sortOrder = 0,
 }) {
   const { data, error } = await supabase
@@ -32,6 +33,7 @@ export async function createExercise({
       default_sets: defaultSets,
       default_rep_range: defaultRepRange,
       is_cardio: isCardio,
+      no_metrics: noMetrics,
       sort_order: sortOrder,
     })
     .select()

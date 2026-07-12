@@ -1,0 +1,142 @@
+.plans-view {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 24px 20px 96px;
+}
+
+.plans-view > h1 {
+  margin-bottom: 8px;
+}
+
+.plans-intro {
+  color: var(--chalk-dim);
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+.plan-card {
+  background: var(--surface);
+  border: 1px solid var(--iron-line);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.plan-card header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.plan-card-title {
+  flex: 1;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.plan-card-title h2 {
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.plan-description {
+  font-size: 13px;
+  color: var(--chalk-dim);
+  margin: 4px 0;
+}
+
+.plan-day-count {
+  font-size: 12px;
+  color: var(--chalk-dim);
+}
+
+.add-plan-button {
+  font: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--chalk);
+  background: var(--plate-red);
+  border: 1px solid var(--plate-red);
+  border-radius: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.add-plan-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.plan-preview {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--iron-line);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.plan-preview-day h3 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--chalk-dim);
+  margin-bottom: 4px;
+}
+
+.plan-preview-day ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 14px;
+}
+
+.plan-preview-day li {
+  padding: 3px 0;
+}
+
+.plan-exercise-meta {
+  color: var(--chalk-dim);
+  font-size: 13px;
+}
+
+.upload-plan-card {
+  background: var(--surface);
+  border: 1px dashed var(--iron-line);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.upload-plan-card h2 {
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin-bottom: 4px;
+}
+
+.upload-plan-card .plans-intro {
+  margin-bottom: 12px;
+}
+
+.upload-plan-button {
+  display: inline-block;
+  font: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--chalk);
+  background: var(--surface-raised);
+  border: 1px solid var(--iron-line);
+  border-radius: 8px;
+  padding: 10px 16px;
+  cursor: pointer;
+}
+
+.upload-plan-button:hover {
+  border-color: var(--plate-red);
+}
+
+.upload-plan-button input[type='file'] {
+  display: none;
+}

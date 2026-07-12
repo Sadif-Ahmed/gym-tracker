@@ -135,9 +135,14 @@ export function TodayView({ userId }) {
 
     setError(null)
     try {
+      // A previously-finished session switching splits needs to reopen -
+      // otherwise end_time stays set, the Finish button stays hidden, and
+      // there's no way to close out the new split at all.
       const updated = await updateWorkoutSession(session.id, {
         split_day_id: splitDay.id,
         split_day_name_snapshot: splitDay.name,
+        end_time: null,
+        estimated_calories_burned: null,
       })
       setBurnEstimate(null)
       setBurnBreakdown(null)
@@ -679,6 +684,25 @@ function ExerciseLedger({ exercise, sets, onLogSet, onDeleteSet }) {
     if (!repsValue) return
     onLogSet({ reps: repsValue, weightKg: weight === '' ? null : Number(weight) })
     setReps('')
+  }
+
+  if (exercise.no_metrics) {
+    const done = sets.length > 0
+    return (
+      <section class="exercise-ledger no-metrics-ledger">
+        <header>
+          <h2>{exercise.name}</h2>
+          <p class="muscle-group">{exercise.muscle_group}</p>
+        </header>
+        <button
+          type="button"
+          class={`done-toggle-button${done ? ' done' : ''}`}
+          onClick={() => (done ? onDeleteSet(sets[0]) : onLogSet({}))}
+        >
+          {done ? 'Done ✓ (tap to undo)' : 'Mark done'}
+        </button>
+      </section>
+    )
   }
 
   return (
