@@ -11,7 +11,7 @@ import {
 import { listSetEntries, createSetEntry, deleteSetEntry } from '../../data/setEntries.js'
 import { createExercise, updateExercise } from '../../data/exercises.js'
 import { latestWeightEntry } from '../../data/weightEntries.js'
-import { classifyExerciseMet } from '../../services/exerciseCalorieBurn.js'
+import { classifyExercisesMet } from '../../services/exerciseCalorieBurn.js'
 import { computeSessionCalorieBurn } from '../../utils/calorieBurnCalculator.js'
 import { groupSetsByExercise, formatSet } from '../../utils/workoutSummary.js'
 import { MUSCLE_GROUPS } from '../../utils/muscleGroups.js'
@@ -159,6 +159,10 @@ export function TodayView({ userId }) {
         end_time: new Date().toISOString(),
       })
       setSession(updated)
+      // Fire and forget - runs in the background so Finish doesn't block on
+      // an LLM call. Any failure (e.g. daily cap reached) surfaces in
+      // BurnEstimateSection's error slot; the user can retry via "Estimate".
+      handleEstimateBurn()
     } catch (err) {
       setError(err.message)
     }
@@ -236,22 +240,29 @@ export function TodayView({ userId }) {
 
       // Classify MET is a one-time-per-exercise LLM call, cached on
       // exercises.met_value — most exercises will already have it after
-      // their first workout, so this is usually a no-op.
-      const involvedWithMet = []
-      for (const exercise of involved) {
-        if (exercise.met_value != null) {
-          involvedWithMet.push(exercise)
-          continue
+      // their first workout. Whatever's still missing gets batched into a
+      // single LLM call instead of one call per exercise, so a session with
+      // several new exercises doesn't burn through the daily LLM cap.
+      const needsMet = involved.filter((exercise) => exercise.met_value == null)
+      const metById = new Map()
+      if (needsMet.length > 0) {
+        const results = await classifyExercisesMet(
+          needsMet.map((exercise) => ({
+            name: exercise.name,
+            muscleGroup: exercise.muscle_group,
+            isCardio: exercise.is_cardio,
+          }))
+        )
+        const metByName = new Map(results.map((r) => [r.name.trim().toLowerCase(), r.met_value]))
+        for (const exercise of needsMet) {
+          const metValue = metByName.get(exercise.name.trim().toLowerCase())
+          if (metValue == null) throw new Error(`No MET classification returned for "${exercise.name}"`)
+          const updated = await updateExercise(exercise.id, { met_value: metValue })
+          setExercises((prev) => prev.map((e) => (e.id === updated.id ? updated : e)))
+          metById.set(updated.id, updated)
         }
-        const metValue = await classifyExerciseMet({
-          name: exercise.name,
-          muscleGroup: exercise.muscle_group,
-          isCardio: exercise.is_cardio,
-        })
-        const updated = await updateExercise(exercise.id, { met_value: metValue })
-        setExercises((prev) => prev.map((e) => (e.id === updated.id ? updated : e)))
-        involvedWithMet.push(updated)
       }
+      const involvedWithMet = involved.map((exercise) => metById.get(exercise.id) ?? exercise)
 
       const sessionDurationMinutes =
         session.start_time && session.end_time
@@ -655,9 +666,11 @@ function BurnEstimateSection({
             {estimating ? 'Estimating…' : 'Re-estimate'}
           </button>
         </div>
+      ) : estimating ? (
+        <p class="eyebrow">Estimating…</p>
       ) : (
-        <button type="button" class="estimate-burn-button" onClick={onEstimate} disabled={estimating}>
-          {estimating ? 'Estimating…' : 'Estimate calories burned'}
+        <button type="button" class="estimate-burn-button" onClick={onEstimate}>
+          Estimate calories burned
         </button>
       )}
     </section>

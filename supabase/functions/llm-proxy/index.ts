@@ -42,9 +42,19 @@ const FOOD_SCHEMA = {
 const MET_SCHEMA = {
   type: 'object',
   properties: {
-    met_value: { type: 'number' },
+    exercises: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          met_value: { type: 'number' },
+        },
+        required: ['name', 'met_value'],
+      },
+    },
   },
-  required: ['met_value'],
+  required: ['exercises'],
 }
 
 const MUSCLE_GROUPS = ['Chest', 'Back', 'Shoulders', 'Legs', 'Biceps', 'Triceps', 'Calves', 'Core', 'Cardio', 'Other']
@@ -187,24 +197,30 @@ async function estimateFoodPhoto(apiKey: string, imageBase64: string | undefined
   return callNvidiaWithFallback(apiKey, VISION_MODEL_POOL, system, user, imageBase64, FOOD_SCHEMA)
 }
 
-// Classifies a single exercise's MET (Metabolic Equivalent of Task) value -
-// the one fuzzy judgment call in calorie-burn math (see
-// src/utils/calorieBurnCalculator.js). Called once per exercise ever; the
-// caller persists the result to exercises.met_value so this never runs
-// again for that exercise. The arithmetic itself (met * bodyweight * time)
-// is deterministic client-side math, not an LLM call.
-async function classifyExerciseMet(
+// Classifies MET (Metabolic Equivalent of Task) values for every exercise in
+// a session that doesn't have one cached yet - the one fuzzy judgment call in
+// calorie-burn math (see src/utils/calorieBurnCalculator.js). Batched into a
+// single LLM call per session-finish rather than one call per exercise, so a
+// session with several new exercises doesn't burn through the daily LLM cap
+// on classification alone. Each result is persisted to exercises.met_value so
+// it never needs reclassifying. The arithmetic itself (met * bodyweight *
+// time) is deterministic client-side math, not an LLM call.
+async function classifyExercisesMet(
   apiKey: string,
-  body: { name?: string; muscleGroup?: string; isCardio?: boolean }
+  body: { exercises?: { name?: string; muscleGroup?: string; isCardio?: boolean }[] }
 ) {
-  const { name, muscleGroup, isCardio } = body
-  if (!name) throw new Error('name is required')
+  const list = body.exercises
+  if (!Array.isArray(list) || list.length === 0) throw new Error('exercises array is required')
   const system =
-    'You are an exercise physiology assistant. Given an exercise, classify its MET (Metabolic Equivalent of Task) value for a typical moderate-to-vigorous gym set at that exercise. Use standard MET compendium values as a reference. Respond only with the requested JSON.'
-  const user = `Exercise: ${name}. Muscle group: ${muscleGroup ?? 'unspecified'}. Type: ${
-    isCardio ? 'cardio' : 'strength/resistance'
-  }. Give a realistic MET value for this exercise.`
-  return callNvidiaWithFallback(apiKey, TEXT_MODEL_POOL, system, user, undefined, MET_SCHEMA)
+    'You are an exercise physiology assistant. Given a numbered list of exercises, classify the MET (Metabolic Equivalent of Task) value for a typical moderate-to-vigorous gym set at each one. Use standard MET compendium values as a reference. Return one entry per exercise listed, using its exact name. Respond only with the requested JSON.'
+  const user = `Exercises:\n${list
+    .map((ex, i) => `${i + 1}. ${ex.name}. Muscle group: ${ex.muscleGroup ?? 'unspecified'}. Type: ${
+      ex.isCardio ? 'cardio' : 'strength/resistance'
+    }.`)
+    .join('\n')}`
+  return callNvidiaWithFallback(apiKey, TEXT_MODEL_POOL, system, user, undefined, MET_SCHEMA, {
+    maxTokens: 200 + list.length * 40,
+  })
 }
 
 const MAX_PLAN_MARKDOWN_CHARS = 20_000
@@ -298,8 +314,8 @@ Deno.serve(async (req) => {
     if (body.action === 'estimate_food_photo') {
       const description = (body.description as string | undefined)?.slice(0, 300)
       result = await estimateFoodPhoto(nvidiaApiKey, body.imageBase64 as string | undefined, description)
-    } else if (body.action === 'classify_exercise_met') {
-      result = await classifyExerciseMet(nvidiaApiKey, body as never)
+    } else if (body.action === 'classify_exercises_met') {
+      result = await classifyExercisesMet(nvidiaApiKey, body as never)
     } else if (body.action === 'parse_training_plan') {
       result = await parseTrainingPlan(nvidiaApiKey, body.markdown as string | undefined)
     } else {

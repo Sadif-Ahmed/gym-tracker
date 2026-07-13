@@ -2,7 +2,7 @@
 // deterministic given intensity category, bodyweight, and duration. This
 // is the same formula most fitness apps use; the only fuzzy judgment call
 // is which MET value an exercise falls under, which is what the LLM
-// classifies (once per exercise, cached) - see classify_exercise_met.
+// classifies (once per exercise, cached, batched per session) - see classify_exercises_met.
 export function metCaloriesBurned(metValue, bodyweightKg, durationHours) {
   return metValue * bodyweightKg * durationHours
 }
