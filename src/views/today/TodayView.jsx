@@ -162,7 +162,9 @@ export function TodayView({ userId }) {
       // Fire and forget - runs in the background so Finish doesn't block on
       // an LLM call. Any failure (e.g. daily cap reached) surfaces in
       // BurnEstimateSection's error slot; the user can retry via "Estimate".
-      handleEstimateBurn()
+      // Pass `updated` explicitly - `session` state hasn't re-rendered yet
+      // at this point, so it would still read end_time as null.
+      handleEstimateBurn(updated)
     } catch (err) {
       setError(err.message)
     }
@@ -228,7 +230,8 @@ export function TodayView({ userId }) {
     }
   }
 
-  async function handleEstimateBurn() {
+  async function handleEstimateBurn(sessionOverride) {
+    const targetSession = sessionOverride ?? session
     setEstimatingBurn(true)
     setBurnError(null)
     try {
@@ -265,8 +268,8 @@ export function TodayView({ userId }) {
       const involvedWithMet = involved.map((exercise) => metById.get(exercise.id) ?? exercise)
 
       const sessionDurationMinutes =
-        session.start_time && session.end_time
-          ? Math.round((new Date(session.end_time) - new Date(session.start_time)) / 60000)
+        targetSession.start_time && targetSession.end_time
+          ? Math.round((new Date(targetSession.end_time) - new Date(targetSession.start_time)) / 60000)
           : 0
 
       const { totalCalories, breakdown } = computeSessionCalorieBurn({
