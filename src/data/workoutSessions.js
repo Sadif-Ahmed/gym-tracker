@@ -25,6 +25,19 @@ export async function listWorkoutSessionsBefore(date, { limit = 3 } = {}) {
   return data
 }
 
+// Inclusive on both ends - used by History's month calendar.
+export async function listWorkoutSessionsInRange(fromDate, toDate) {
+  const { data, error } = await supabase
+    .from('workout_sessions')
+    .select('*')
+    .gte('date', fromDate)
+    .lte('date', toDate)
+    .order('date', { ascending: true })
+
+  if (error) throw error
+  return data
+}
+
 export async function getSessionForDate(date) {
   const { data, error } = await supabase
     .from('workout_sessions')

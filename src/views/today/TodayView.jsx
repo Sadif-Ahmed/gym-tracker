@@ -8,7 +8,12 @@ import {
   updateWorkoutSession,
   listWorkoutSessionsBefore,
 } from '../../data/workoutSessions.js'
-import { listSetEntries, createSetEntry, deleteSetEntry } from '../../data/setEntries.js'
+import {
+  listSetEntries,
+  listSetEntriesForSessions,
+  createSetEntry,
+  deleteSetEntry,
+} from '../../data/setEntries.js'
 import { createExercise, updateExercise } from '../../data/exercises.js'
 import { latestWeightEntry } from '../../data/weightEntries.js'
 import { classifyExercisesMet } from '../../services/exerciseCalorieBurn.js'
@@ -18,12 +23,17 @@ import { MUSCLE_GROUPS } from '../../utils/muscleGroups.js'
 import './today.css'
 
 const RECENT_HISTORY_LIMIT = 3
+// ponytail: "last time" only looks back this many sessions - an exercise not
+// trained within them shows no summary. Raise it if that bites.
+const PREVIOUS_SETS_LOOKBACK = 30
 
 const DAY_LABEL = new Intl.DateTimeFormat(undefined, {
   weekday: 'long',
   month: 'short',
   day: 'numeric',
 })
+
+const SHORT_DAY_LABEL = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' })
 
 function formatDayLabel(isoDate) {
   return DAY_LABEL.format(new Date(`${isoDate}T00:00:00`))
@@ -43,6 +53,7 @@ export function TodayView({ userId }) {
   const [estimatingBurn, setEstimatingBurn] = useState(false)
   const [burnError, setBurnError] = useState(null)
   const [recentSessions, setRecentSessions] = useState([])
+  const [lastSetsByExercise, setLastSetsByExercise] = useState({})
   const [changingSplit, setChangingSplit] = useState(false)
 
   const today = todayISO()
@@ -55,22 +66,35 @@ export function TodayView({ userId }) {
     setLoading(true)
     setError(null)
     try {
-      const [existingSession, weight, days, recent] = await Promise.all([
+      const [existingSession, weight, days, previous] = await Promise.all([
         getSessionForDate(today),
         latestWeightEntry(),
         listSplitDays(),
-        listWorkoutSessionsBefore(today, { limit: RECENT_HISTORY_LIMIT }),
+        listWorkoutSessionsBefore(today, { limit: PREVIOUS_SETS_LOOKBACK }),
       ])
       setBodyweightKg(weight?.weight_kg ?? null)
       setSplitDays(days)
+
+      const previousSets = await listSetEntriesForSessions(previous.map((s) => s.id))
+      const setsBySession = {}
+      for (const set of previousSets) {
+        ;(setsBySession[set.session_id] ??= []).push(set)
+      }
       setRecentSessions(
-        await Promise.all(
-          recent.map(async (recentSession) => ({
-            session: recentSession,
-            sets: await listSetEntries(recentSession.id),
-          }))
-        )
+        previous
+          .slice(0, RECENT_HISTORY_LIMIT)
+          .map((s) => ({ session: s, sets: setsBySession[s.id] ?? [] }))
       )
+      // previous is newest-first, so the first session seen per exercise wins.
+      const lastByExercise = {}
+      for (const s of previous) {
+        for (const set of setsBySession[s.id] ?? []) {
+          if (!set.exercise_id) continue
+          const entry = (lastByExercise[set.exercise_id] ??= { sessionId: s.id, date: s.date, sets: [] })
+          if (entry.sessionId === s.id) entry.sets.push(set)
+        }
+      }
+      setLastSetsByExercise(lastByExercise)
       if (existingSession) {
         await loadSessionData(existingSession)
       }
@@ -327,6 +351,7 @@ export function TodayView({ userId }) {
           exercises={exercises}
           libraryExercises={libraryExercises}
           setsByExercise={setsByExercise}
+          lastSetsByExercise={lastSetsByExercise}
           onLogSet={handleLogSet}
           onDeleteSet={handleDeleteSet}
           onAddExtraExercise={handleAddExtraExercise}
@@ -415,6 +440,7 @@ function WorkoutLog({
   exercises,
   libraryExercises,
   setsByExercise,
+  lastSetsByExercise,
   onLogSet,
   onDeleteSet,
   onAddExtraExercise,
@@ -442,11 +468,6 @@ function WorkoutLog({
             Change split
           </button>
         </div>
-        {!session.end_time && (
-          <button type="button" class="finish-button" onClick={onFinish}>
-            Finish
-          </button>
-        )}
       </header>
 
       {session.end_time && <p class="finished-note">Finished — logged and in the books.</p>}
@@ -459,6 +480,7 @@ function WorkoutLog({
             key={exercise.id}
             exercise={exercise}
             sets={setsByExercise[exercise.id] ?? []}
+            lastSets={lastSetsByExercise[exercise.id]}
             onLogSet={(values) => onLogSet(exercise, values)}
             onDeleteSet={(setEntry) => onDeleteSet(exercise, setEntry)}
           />
@@ -473,6 +495,7 @@ function WorkoutLog({
               key={exercise.id}
               exercise={exercise}
               sets={setsByExercise[exercise.id] ?? []}
+              lastSets={lastSetsByExercise[exercise.id]}
               onLogSet={(values) => onLogSet(exercise, values)}
               onDeleteSet={(setEntry) => onDeleteSet(exercise, setEntry)}
             />
@@ -486,6 +509,12 @@ function WorkoutLog({
         onAdd={onAddExtraExercise}
         onCreate={onCreateExtraExercise}
       />
+
+      {!session.end_time && (
+        <button type="button" class="finish-button" onClick={onFinish}>
+          Finish workout
+        </button>
+      )}
 
       {session.end_time && (
         <BurnEstimateSection
@@ -680,7 +709,7 @@ function BurnEstimateSection({
   )
 }
 
-function ExerciseLedger({ exercise, sets, onLogSet, onDeleteSet }) {
+function ExerciseLedger({ exercise, sets, lastSets, onLogSet, onDeleteSet }) {
   const [weight, setWeight] = useState('')
   const [reps, setReps] = useState('')
   const [durationMin, setDurationMin] = useState('')
@@ -727,6 +756,13 @@ function ExerciseLedger({ exercise, sets, onLogSet, onDeleteSet }) {
         <h2>{exercise.name}</h2>
         <p class="muscle-group">{exercise.muscle_group}</p>
       </header>
+
+      {lastSets && (
+        <p class="last-sets">
+          <span class="last-sets-label">Last · {SHORT_DAY_LABEL.format(new Date(`${lastSets.date}T00:00:00`))}</span>
+          <span class="num">{lastSets.sets.map(formatSet).join(', ')}</span>
+        </p>
+      )}
 
       {sets.length > 0 && (
         <table class="set-table">

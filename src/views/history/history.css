@@ -23,10 +23,84 @@
   font-size: 14px;
 }
 
-.session-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.calendar {
+  background: var(--surface);
+  border: 1px solid var(--iron-line);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 20px;
+}
+
+.calendar-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.calendar-nav h2 {
+  font-size: 16px;
+}
+
+.calendar-nav button {
+  font: inherit;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--chalk);
+  background: none;
+  border: 1px solid var(--iron-line);
+  border-radius: 6px;
+  width: 40px;
+  height: 36px;
+  cursor: pointer;
+}
+
+.calendar-nav button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.calendar-weekday {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--chalk-dim);
+  padding-bottom: 4px;
+}
+
+.calendar-day {
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 14px;
+  aspect-ratio: 1;
+  min-height: 36px;
+  color: var(--chalk-dim);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: default;
+}
+
+.calendar-day.today {
+  border-color: var(--iron-line);
+}
+
+.calendar-day.has-workout {
+  color: var(--chalk);
+  font-weight: 700;
+  background: var(--plate-red-dim);
+  cursor: pointer;
+}
+
+.calendar-day.selected {
+  background: var(--plate-red);
+  border-color: var(--plate-red);
 }
 
 .session-row {
@@ -38,16 +112,11 @@
 }
 
 .session-summary {
-  width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  background: none;
-  border: none;
   padding: 16px;
-  cursor: pointer;
-  text-align: left;
   color: var(--chalk);
 }
 
@@ -56,9 +125,8 @@
   letter-spacing: 0.02em;
 }
 
-.session-chevron {
-  font-family: var(--mono);
-  font-size: 20px;
+.session-burn {
+  font-size: 14px;
   color: var(--chalk-dim);
   flex-shrink: 0;
 }

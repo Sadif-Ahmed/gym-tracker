@@ -5,6 +5,7 @@ const SECTIONS = [
     title: 'Today',
     body: [
       "Pick a split day to start today's workout. Log each set as you go — weight × reps for strength exercises, minutes for cardio.",
+      'Under each exercise, "Last" shows the sets you logged for it in your most recent previous workout, so you know what weight to aim for.',
       'Tap Finish when you\'re done, then "Estimate calories burned" for a MET-based estimate from your actual sets and bodyweight — review it and edit the number before saving.',
     ],
   },
@@ -32,7 +33,7 @@ const SECTIONS = [
   {
     title: 'History',
     body: [
-      'Browse past workouts, tap one to expand its sets, and delete any single workout you logged by mistake.',
+      'A month calendar highlights every day you worked out. Tap a highlighted day to see that workout\'s sets, and delete it if you logged it by mistake. Use ‹ › to switch months.',
     ],
   },
   {
