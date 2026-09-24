@@ -5,6 +5,10 @@ import { EXERCISE_CATALOG, findCatalogExercise, catalogMetFor, tutorialFor } fro
 import { PLAN_LIBRARY } from '../src/data/planLibrary.js'
 import { formatDuration } from '../src/utils/workoutSummary.js'
 import { moveItem, applyOrder } from '../src/utils/useDragReorder.js'
+import {
+  mondayOf, exerciseHistory, exerciseStats, pointsSince, weekTotals, trainingGrid, weekStreak,
+  setsPerMuscle, recentRecords,
+} from '../src/utils/progressionAnalyzer.js'
 
 // Calorie burn: warm-ups get 1 min each, cardio its logged time, lifts split the rest.
 {
@@ -85,6 +89,58 @@ assert.equal(formatDuration(900), '15m')
   const ids = (xs) => xs.map((x) => x.id)
   assert.deepEqual(ids(applyOrder(items, ['c', 'a', 'gone'])), ['c', 'a', 'b', 'd'])
   assert.deepEqual(ids(applyOrder(items, null)), ['a', 'b', 'c', 'd'])
+}
+
+// Progress tab: PRs, stats, weekly totals, streak, muscle sets.
+{
+  assert.equal(mondayOf('2026-09-24'), '2026-09-21') // Thursday
+  assert.equal(mondayOf('2026-09-27'), '2026-09-21') // Sunday stays in its week
+  assert.equal(mondayOf('2026-09-21'), '2026-09-21')
+
+  const bench = { id: 'b', is_cardio: false, muscle_group: 'Chest' }
+  const run = { id: 'r', is_cardio: true, muscle_group: 'Cardio' }
+  const warm = { id: 'w', no_metrics: true, muscle_group: 'Other' }
+  const set = (exerciseId, sessionId, date, extra) => ({ exerciseId, sessionId, date, ...extra })
+  const sets = [
+    set('b', 's1', '2026-08-01', { weightKg: 60, reps: 5 }),
+    set('b', 's2', '2026-09-15', { weightKg: 55, reps: 5 }),
+    set('b', 's3', '2026-09-22', { weightKg: 70, reps: 5 }),
+    set('b', 's3', '2026-09-22', { weightKg: 50, reps: 10 }),
+    set('r', 's3', '2026-09-22', { durationSeconds: 600 }),
+    set('w', 's3', '2026-09-22', {}),
+    set('b', 's4', '2026-09-24', { weightKg: 0, reps: 12 }), // bodyweight: no 1RM point
+  ]
+
+  const history = exerciseHistory(sets, bench)
+  assert.deepEqual(history.map((p) => p.sessionId), ['s1', 's2', 's3'])
+  assert.deepEqual(history.map((p) => p.isPr), [false, false, true]) // first is baseline, dip isn't a PR
+
+  const stats = exerciseStats(history, '2026-09-24')
+  assert.equal(stats.best.sessionId, 's3')
+  assert.equal(stats.change30, 70 * (1 + 5 / 30) - 60 * (1 + 5 / 30)) // vs s1, the last point >= 30 days old
+  assert.equal(exerciseStats(history.slice(1), '2026-09-24').change30, null)
+  assert.equal(pointsSince(history, 30, '2026-09-24').length, 2)
+  assert.equal(pointsSince(history, null, '2026-09-24').length, 3)
+
+  const week = weekTotals(sets, '2026-09-21')
+  assert.deepEqual(week, { workouts: 2, volumeKg: 70 * 5 + 50 * 10, minutes: 10 })
+
+  assert.deepEqual(setsPerMuscle(sets, new Map([bench, run, warm].map((e) => [e.id, e])), '2026-09-21'),
+    [{ group: 'Chest', count: 3 }, { group: 'Cardio', count: 1 }])
+
+  const trained = new Set(['2026-09-08', '2026-09-15', '2026-09-22'])
+  assert.equal(weekStreak(trained, '2026-09-24'), 3)
+  assert.equal(weekStreak(new Set(['2026-09-08', '2026-09-15']), '2026-09-24'), 2) // this week not started yet
+  assert.equal(weekStreak(new Set(['2026-09-08']), '2026-09-24'), 0)
+
+  const grid = trainingGrid(trained, '2026-09-24')
+  assert.equal(grid.length, 12)
+  assert.equal(grid.at(-1)[0].date, '2026-09-21')
+  assert.equal(grid.at(-1)[1].trained, true)
+  assert.equal(grid.at(-1)[6].future, true)
+
+  const records = recentRecords(sets, [bench, run, warm])
+  assert.deepEqual(records.map((r) => r.sessionId), ['s3'])
 }
 
 console.log('all checks passed')

@@ -75,3 +75,220 @@
   text-align: right;
   font-weight: 700;
 }
+
+.progress-view h2 {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--chalk-dim);
+  margin: 0 0 12px;
+}
+
+.progress-block {
+  margin-bottom: 32px;
+}
+
+.block-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--iron-line);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-value small {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--chalk-dim);
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--chalk-dim);
+}
+
+.stat-sub {
+  font-size: 11px;
+  color: var(--chalk-dim);
+}
+
+.progress-view .up {
+  color: var(--pr-green);
+}
+
+.progress-view .down {
+  color: var(--plate-red);
+}
+
+.streak {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--pr-green);
+}
+
+.training-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 4px;
+}
+
+.training-week {
+  display: grid;
+  gap: 4px;
+}
+
+.training-day {
+  aspect-ratio: 1;
+  border-radius: 3px;
+  background: var(--surface-raised);
+}
+
+.training-day.trained {
+  background: var(--plate-red);
+}
+
+.training-day.future {
+  background: transparent;
+  border: 1px dashed var(--iron-line);
+}
+
+.grid-caption {
+  font-size: 11px;
+  color: var(--chalk-dim);
+  margin: 8px 0 0;
+}
+
+.muscle-bars,
+.record-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.muscle-bars li {
+  display: grid;
+  grid-template-columns: 80px 1fr 28px;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  font-size: 14px;
+}
+
+.muscle-track {
+  height: 10px;
+  border-radius: 5px;
+  background: var(--surface-raised);
+  overflow: hidden;
+}
+
+.muscle-fill {
+  display: block;
+  height: 100%;
+  background: var(--plate-red);
+}
+
+.muscle-count {
+  text-align: right;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.record-list li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  column-gap: 10px;
+  align-items: center;
+  padding: 10px 0;
+  border-top: 1px solid var(--iron-line);
+  font-size: 14px;
+}
+
+.record-list li:first-child {
+  border-top: none;
+}
+
+.record-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.record-value {
+  grid-column: 2;
+  font-size: 12px;
+  color: var(--chalk-dim);
+}
+
+.record-date {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  font-size: 12px;
+  color: var(--chalk-dim);
+}
+
+.record-list .pr-badge {
+  grid-row: 1 / span 2;
+  margin-left: 0;
+}
+
+.pr-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--pr-green);
+  color: var(--pr-green);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+}
+
+.range-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.range-tabs button {
+  flex: 1;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 0;
+  border-radius: 6px;
+  border: 1px solid var(--iron-line);
+  background: var(--surface);
+  color: var(--chalk-dim);
+  cursor: pointer;
+}
+
+.range-tabs button.active {
+  background: var(--plate-red-dim);
+  border-color: var(--plate-red);
+  color: var(--chalk);
+}

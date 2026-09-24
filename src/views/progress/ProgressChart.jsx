@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'preact/hooks'
 import { Chart } from 'chart.js/auto'
 
-export function ProgressChart({ labels, data, label = 'Estimated 1RM (kg)' }) {
+// highlights: optional booleans per point - PR sessions drawn larger in green.
+export function ProgressChart({ labels, data, highlights = [], label = 'Estimated 1RM (kg)' }) {
   const canvasRef = useRef(null)
   const chartRef = useRef(null)
 
@@ -18,8 +19,9 @@ export function ProgressChart({ labels, data, label = 'Estimated 1RM (kg)' }) {
             data,
             borderColor: '#d6402f',
             backgroundColor: '#d6402f',
-            pointBackgroundColor: '#d6402f',
-            pointRadius: 4,
+            pointBackgroundColor: data.map((_, i) => (highlights[i] ? '#4ca771' : '#d6402f')),
+            pointBorderColor: data.map((_, i) => (highlights[i] ? '#4ca771' : '#d6402f')),
+            pointRadius: data.map((_, i) => (highlights[i] ? 6 : 4)),
             tension: 0.25,
           },
         ],
@@ -36,7 +38,7 @@ export function ProgressChart({ labels, data, label = 'Estimated 1RM (kg)' }) {
     })
 
     return () => chartRef.current?.destroy()
-  }, [labels, data, label])
+  }, [labels, data, highlights, label])
 
   return (
     <div class="progress-chart">
