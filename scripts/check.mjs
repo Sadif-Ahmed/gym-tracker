@@ -4,6 +4,7 @@ import { computeSessionCalorieBurn } from '../src/utils/calorieBurnCalculator.js
 import { EXERCISE_CATALOG, findCatalogExercise, catalogMetFor, tutorialFor } from '../src/data/exerciseCatalog.js'
 import { PLAN_LIBRARY } from '../src/data/planLibrary.js'
 import { formatDuration } from '../src/utils/workoutSummary.js'
+import { moveItem } from '../src/utils/useDragReorder.js'
 
 // Calorie burn: warm-ups get 1 min each, cardio its logged time, lifts split the rest.
 {
@@ -70,5 +71,14 @@ assert.equal(formatDuration(30), '30s')
 assert.equal(formatDuration(60), '1m')
 assert.equal(formatDuration(90), '1m 30s')
 assert.equal(formatDuration(900), '15m')
+
+// Reorder moves one item and keeps the rest in order, without mutating input.
+{
+  const list = ['a', 'b', 'c', 'd']
+  assert.deepEqual(moveItem(list, 3, 0), ['d', 'a', 'b', 'c'])
+  assert.deepEqual(moveItem(list, 0, 2), ['b', 'c', 'a', 'd'])
+  assert.deepEqual(moveItem(list, 1, 1), list)
+  assert.deepEqual(list, ['a', 'b', 'c', 'd'])
+}
 
 console.log('all checks passed')

@@ -23,6 +23,7 @@ import { MUSCLE_GROUPS } from '../../utils/muscleGroups.js'
 import { catalogMetFor, findCatalogExercise } from '../../data/exerciseCatalog.js'
 import { ExerciseNameField } from '../shared/ExerciseNameField.jsx'
 import { ExerciseTutorial } from '../shared/ExerciseTutorial.jsx'
+import { useDragReorder, moveItem } from '../../utils/useDragReorder.js'
 import './today.css'
 
 const RECENT_HISTORY_LIMIT = 3
@@ -222,6 +223,27 @@ export function TodayView({ userId }) {
     }
   }
 
+  // Drag-reorder on Today saves as the split day's own exercise order, so it
+  // sticks for Split Days and the next workout too.
+  async function handleReorderSplit(from, to) {
+    const splitIds = new Set(
+      exercises.filter((e) => e.split_day_id === session.split_day_id).map((e) => e.id)
+    )
+    const split = exercises.filter((e) => splitIds.has(e.id))
+    const extras = exercises.filter((e) => !splitIds.has(e.id))
+    const reordered = moveItem(split, from, to).map((e, i) => ({ ...e, sort_order: i }))
+    const previous = exercises
+    setExercises([...reordered, ...extras])
+    setError(null)
+    try {
+      const changed = reordered.filter((e, i) => split.find((o) => o.id === e.id).sort_order !== i)
+      await Promise.all(changed.map((e) => updateExercise(e.id, { sort_order: e.sort_order })))
+    } catch (err) {
+      setExercises(previous)
+      setError(`Couldn't save the new order: ${err.message}`)
+    }
+  }
+
   async function handleDeleteSet(exercise, setEntry) {
     setError(null)
     try {
@@ -373,6 +395,7 @@ export function TodayView({ userId }) {
           lastSetsByExercise={lastSetsByExercise}
           onLogSet={handleLogSet}
           onDeleteSet={handleDeleteSet}
+          onReorderSplit={handleReorderSplit}
           onAddExtraExercise={handleAddExtraExercise}
           onCreateExtraExercise={handleCreateExtraExercise}
           onFinish={handleFinishWorkout}
@@ -462,6 +485,7 @@ function WorkoutLog({
   lastSetsByExercise,
   onLogSet,
   onDeleteSet,
+  onReorderSplit,
   onAddExtraExercise,
   onCreateExtraExercise,
   onFinish,
@@ -476,6 +500,7 @@ function WorkoutLog({
 }) {
   const splitExercises = exercises.filter((e) => e.split_day_id === session.split_day_id)
   const extraExercises = exercises.filter((e) => e.split_day_id !== session.split_day_id)
+  const drag = useDragReorder(splitExercises.length, onReorderSplit)
 
   return (
     <div class="workout-log">
@@ -494,15 +519,22 @@ function WorkoutLog({
       {splitExercises.length === 0 ? (
         <p class="empty-state">No exercises assigned to this split day yet.</p>
       ) : (
-        splitExercises.map((exercise) => (
-          <ExerciseLedger
+        splitExercises.map((exercise, index) => (
+          <div
             key={exercise.id}
-            exercise={exercise}
-            sets={setsByExercise[exercise.id] ?? []}
-            lastSets={lastSetsByExercise[exercise.id]}
-            onLogSet={(values) => onLogSet(exercise, values)}
-            onDeleteSet={(setEntry) => onDeleteSet(exercise, setEntry)}
-          />
+            ref={drag.itemRef(index)}
+            style={drag.itemStyle(index)}
+            class={`ledger-slot${drag.draggingIndex === index ? ' dragging' : ''}`}
+          >
+            <ExerciseLedger
+              exercise={exercise}
+              sets={setsByExercise[exercise.id] ?? []}
+              lastSets={lastSetsByExercise[exercise.id]}
+              onLogSet={(values) => onLogSet(exercise, values)}
+              onDeleteSet={(setEntry) => onDeleteSet(exercise, setEntry)}
+              dragHandleProps={splitExercises.length > 1 ? drag.handleProps(index) : null}
+            />
+          </div>
         ))
       )}
 
@@ -738,7 +770,23 @@ function BurnEstimateSection({
   )
 }
 
-function ExerciseLedger({ exercise, sets, lastSets, onLogSet, onDeleteSet }) {
+function ExerciseLedger({ exercise, sets, lastSets, onLogSet, onDeleteSet, dragHandleProps }) {
+  const title = (
+    <div class="ledger-title">
+      {dragHandleProps && (
+        <button
+          type="button"
+          class="drag-handle"
+          aria-label={`Reorder ${exercise.name}: drag, or use the arrow keys`}
+          {...dragHandleProps}
+        >
+          ⠿
+        </button>
+      )}
+      <h2>{exercise.name}</h2>
+    </div>
+  )
+
   const [weight, setWeight] = useState('')
   const [reps, setReps] = useState('')
   const [durationMin, setDurationMin] = useState('')
@@ -765,7 +813,7 @@ function ExerciseLedger({ exercise, sets, lastSets, onLogSet, onDeleteSet }) {
     return (
       <section class="exercise-ledger no-metrics-ledger">
         <header>
-          <h2>{exercise.name}</h2>
+          {title}
           <p class="muscle-group">{exercise.muscle_group}</p>
         </header>
         <ExerciseTutorial name={exercise.name} />
@@ -783,7 +831,7 @@ function ExerciseLedger({ exercise, sets, lastSets, onLogSet, onDeleteSet }) {
   return (
     <section class="exercise-ledger">
       <header>
-        <h2>{exercise.name}</h2>
+        {title}
         <p class="muscle-group">{exercise.muscle_group}</p>
       </header>
 
