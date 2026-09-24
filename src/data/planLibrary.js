@@ -8,33 +8,33 @@
 // training days (Push add-on on Days 1 & 4, etc). All warm-up items are
 // noMetrics: true - no weight/reps/duration, just a done/undone toggle.
 const COMMON_WARMUP = [
-  { name: 'Jumping Jacks (1 min)', muscleGroup: 'Cardio', noMetrics: true },
-  { name: 'Torso Twists (10 each side)', muscleGroup: 'Cardio', noMetrics: true },
-  { name: 'Ankle Rotations (10 each side)', muscleGroup: 'Cardio', noMetrics: true },
+  { name: 'Jumping Jacks (1 min)', muscleGroup: 'Other', noMetrics: true },
+  { name: 'Torso Twists (10 each side)', muscleGroup: 'Other', noMetrics: true },
+  { name: 'Ankle Rotations (10 each side)', muscleGroup: 'Other', noMetrics: true },
 ]
 
 const PUSH_WARMUP_ADDON = [
-  { name: 'Arm Circles Fwd/Back (20 sec each direction)', muscleGroup: 'Cardio', noMetrics: true },
-  { name: 'Shoulder Pass-Throughs (10 reps)', muscleGroup: 'Cardio', noMetrics: true },
-  { name: 'Doorway/Wall Chest Stretch (20 sec each side)', muscleGroup: 'Cardio', noMetrics: true },
-  { name: 'Push-Up to Downward Dog (8 reps)', muscleGroup: 'Cardio', noMetrics: true },
-  { name: 'Scapular Push-Ups (10 reps)', muscleGroup: 'Cardio', noMetrics: true },
+  { name: 'Arm Circles Fwd/Back (20 sec each direction)', muscleGroup: 'Other', noMetrics: true },
+  { name: 'Shoulder Pass-Throughs (10 reps)', muscleGroup: 'Other', noMetrics: true },
+  { name: 'Doorway/Wall Chest Stretch (20 sec each side)', muscleGroup: 'Other', noMetrics: true },
+  { name: 'Push-Up to Downward Dog (8 reps)', muscleGroup: 'Other', noMetrics: true },
+  { name: 'Scapular Push-Ups (10 reps)', muscleGroup: 'Other', noMetrics: true },
 ]
 
 const PULL_WARMUP_ADDON = [
-  { name: 'Cat-Cow Stretch (10 reps)', muscleGroup: 'Cardio', noMetrics: true },
-  { name: 'Overhead Side-Bend Lat Stretch (20 sec each side)', muscleGroup: 'Cardio', noMetrics: true },
-  { name: 'Band Pull-Aparts (15 reps)', muscleGroup: 'Cardio', noMetrics: true },
-  { name: 'Thoracic Spine Rotations (8 reps each side)', muscleGroup: 'Cardio', noMetrics: true },
-  { name: 'Wrist/Forearm Circles (10 each direction)', muscleGroup: 'Cardio', noMetrics: true },
+  { name: 'Cat-Cow Stretch (10 reps)', muscleGroup: 'Other', noMetrics: true },
+  { name: 'Overhead Side-Bend Lat Stretch (20 sec each side)', muscleGroup: 'Other', noMetrics: true },
+  { name: 'Band Pull-Aparts (15 reps)', muscleGroup: 'Other', noMetrics: true },
+  { name: 'Thoracic Spine Rotations (8 reps each side)', muscleGroup: 'Other', noMetrics: true },
+  { name: 'Wrist/Forearm Circles (10 each direction)', muscleGroup: 'Other', noMetrics: true },
 ]
 
 const LEG_WARMUP_ADDON = [
-  { name: 'Hip Circles (10 each direction)', muscleGroup: 'Cardio', noMetrics: true },
-  { name: 'Leg Swings Front-Back & Side-Side (10 each leg)', muscleGroup: 'Cardio', noMetrics: true },
-  { name: 'Bodyweight Squats (15 reps)', muscleGroup: 'Cardio', noMetrics: true },
-  { name: 'Walking Lunges (10 each leg)', muscleGroup: 'Cardio', noMetrics: true },
-  { name: 'Glute Bridges (15 reps)', muscleGroup: 'Cardio', noMetrics: true },
+  { name: 'Hip Circles (10 each direction)', muscleGroup: 'Other', noMetrics: true },
+  { name: 'Leg Swings Front-Back & Side-Side (10 each leg)', muscleGroup: 'Other', noMetrics: true },
+  { name: 'Bodyweight Squats (15 reps)', muscleGroup: 'Other', noMetrics: true },
+  { name: 'Walking Lunges (10 each leg)', muscleGroup: 'Other', noMetrics: true },
+  { name: 'Glute Bridges (15 reps)', muscleGroup: 'Other', noMetrics: true },
 ]
 
 export const RECOMP_PPL_6DAY = {
