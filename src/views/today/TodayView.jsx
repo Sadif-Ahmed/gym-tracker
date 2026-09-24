@@ -22,6 +22,7 @@ import { groupSetsByExercise, formatSet, formatDuration } from '../../utils/work
 import { MUSCLE_GROUPS } from '../../utils/muscleGroups.js'
 import { catalogMetFor, findCatalogExercise } from '../../data/exerciseCatalog.js'
 import { ExerciseNameField } from '../shared/ExerciseNameField.jsx'
+import { ExerciseTutorial } from '../shared/ExerciseTutorial.jsx'
 import './today.css'
 
 const RECENT_HISTORY_LIMIT = 3
@@ -767,6 +768,7 @@ function ExerciseLedger({ exercise, sets, lastSets, onLogSet, onDeleteSet }) {
           <h2>{exercise.name}</h2>
           <p class="muscle-group">{exercise.muscle_group}</p>
         </header>
+        <ExerciseTutorial name={exercise.name} />
         <button
           type="button"
           class={`done-toggle-button${done ? ' done' : ''}`}
@@ -784,6 +786,8 @@ function ExerciseLedger({ exercise, sets, lastSets, onLogSet, onDeleteSet }) {
         <h2>{exercise.name}</h2>
         <p class="muscle-group">{exercise.muscle_group}</p>
       </header>
+
+      <ExerciseTutorial name={exercise.name} />
 
       {lastSets && (
         <p class="last-sets">

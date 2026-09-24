@@ -116,10 +116,24 @@
 
 .exercise-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   padding: 10px 0;
   border-top: 1px solid var(--iron-line);
+}
+
+/* Full-width line under the name/× row; empty when there's no tutorial. */
+.exercise-row-tutorial {
+  flex-basis: 100%;
+}
+
+.exercise-row-tutorial:empty {
+  display: none;
+}
+
+.exercise-row-tutorial .exercise-tutorial {
+  margin-bottom: 0;
 }
 
 .exercise-row-info {

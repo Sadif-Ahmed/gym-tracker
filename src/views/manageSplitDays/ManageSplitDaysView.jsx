@@ -3,6 +3,7 @@ import { listSplitDays, createSplitDay, updateSplitDay, deleteSplitDay } from '.
 import { listExercises, createExercise, updateExercise, deleteExercise } from '../../data/exercises.js'
 import { MUSCLE_GROUPS } from '../../utils/muscleGroups.js'
 import { ExerciseNameField } from '../shared/ExerciseNameField.jsx'
+import { ExerciseTutorial } from '../shared/ExerciseTutorial.jsx'
 import './manageSplitDays.css'
 
 export function ManageSplitDaysView({ userId }) {
@@ -394,6 +395,9 @@ function ExerciseRow({ exercise, onUpdate, onDelete }) {
       >
         ×
       </button>
+      <div class="exercise-row-tutorial">
+        <ExerciseTutorial name={exercise.name} />
+      </div>
     </li>
   )
 }

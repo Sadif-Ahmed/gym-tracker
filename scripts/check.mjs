@@ -1,7 +1,7 @@
 // Self-checks for the pure logic (no Supabase). Run: npm run check
 import assert from 'node:assert/strict'
 import { computeSessionCalorieBurn } from '../src/utils/calorieBurnCalculator.js'
-import { findCatalogExercise, catalogMetFor } from '../src/data/exerciseCatalog.js'
+import { EXERCISE_CATALOG, findCatalogExercise, catalogMetFor, tutorialFor } from '../src/data/exerciseCatalog.js'
 import { PLAN_LIBRARY } from '../src/data/planLibrary.js'
 import { formatDuration } from '../src/utils/workoutSummary.js'
 
@@ -59,6 +59,11 @@ assert.equal(catalogMetFor('Lat Pulldown [Wide]'), 3.5)
 assert.equal(catalogMetFor('Glute Bridges (15 reps)'), 2.8) // the warm-up, not the weighted lift
 assert.equal(catalogMetFor('Glute Bridges [Hip Thrust]'), 5)
 assert.equal(catalogMetFor('Something Made Up'), null)
+
+// Every catalog exercise has a tutorial; qualified names fall back to the base one.
+for (const entry of EXERCISE_CATALOG) assert.match(tutorialFor(entry.name) ?? '', /^[\w-]{11}$/, `no tutorial for ${entry.name}`)
+assert.equal(tutorialFor('Lat Pulldown [Wide]'), tutorialFor('Lat Pulldown'))
+assert.equal(tutorialFor('Something Made Up'), null)
 
 // Timed sets show seconds under a minute.
 assert.equal(formatDuration(30), '30s')
