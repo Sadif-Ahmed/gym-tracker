@@ -4,6 +4,8 @@ import { listExercises, createExercise, updateExercise, deleteExercise } from '.
 import { MUSCLE_GROUPS } from '../../utils/muscleGroups.js'
 import { ExerciseNameField } from '../shared/ExerciseNameField.jsx'
 import { ExerciseTutorial } from '../shared/ExerciseTutorial.jsx'
+import { DragHandle } from '../shared/DragHandle.jsx'
+import { useDragReorder, moveItem } from '../../utils/useDragReorder.js'
 import './manageSplitDays.css'
 
 export function ManageSplitDaysView({ userId }) {
@@ -142,6 +144,22 @@ export function ManageSplitDaysView({ userId }) {
     }
   }
 
+  // Split Days is where a day's exercise order is actually set - saved as
+  // sort_order, used by every future workout on that day.
+  async function handleReorderExercises(day, from, to) {
+    const current = exercisesByDay[day.id] ?? []
+    const reordered = moveItem(current, from, to).map((e, i) => ({ ...e, sort_order: i }))
+    setExercisesByDay((prev) => ({ ...prev, [day.id]: reordered }))
+    setError(null)
+    try {
+      const changed = reordered.filter((e) => current.find((o) => o.id === e.id).sort_order !== e.sort_order)
+      await Promise.all(changed.map((e) => updateExercise(e.id, { sort_order: e.sort_order })))
+    } catch (err) {
+      setExercisesByDay((prev) => ({ ...prev, [day.id]: current }))
+      setError(`Couldn't save the new order: ${err.message}`)
+    }
+  }
+
   async function handleDeleteExercise(day, exercise) {
     if (!window.confirm(`Remove "${exercise.name}" from ${day.name}?`)) return
 
@@ -187,6 +205,7 @@ export function ManageSplitDaysView({ userId }) {
             onAddExercise={(values) => handleAddExercise(day, values)}
             onUpdateExercise={(exercise, updates) => handleUpdateExercise(day, exercise, updates)}
             onDeleteExercise={(exercise) => handleDeleteExercise(day, exercise)}
+            onReorderExercises={(from, to) => handleReorderExercises(day, from, to)}
           />
         ))
       )}
@@ -215,7 +234,9 @@ function SplitDayCard({
   onAddExercise,
   onUpdateExercise,
   onDeleteExercise,
+  onReorderExercises,
 }) {
+  const drag = useDragReorder(exercises.length, onReorderExercises)
   const [renaming, setRenaming] = useState(false)
   const [nameDraft, setNameDraft] = useState(day.name)
   const [addingExercise, setAddingExercise] = useState(false)
@@ -265,12 +286,16 @@ function SplitDayCard({
         <p class="empty-state">No exercises yet.</p>
       ) : (
         <ul class="exercise-list">
-          {exercises.map((exercise) => (
+          {exercises.map((exercise, index) => (
             <ExerciseRow
               key={exercise.id}
               exercise={exercise}
               onUpdate={(updates) => onUpdateExercise(exercise, updates)}
               onDelete={() => onDeleteExercise(exercise)}
+              slotRef={drag.itemRef(index)}
+              slotStyle={drag.itemStyle(index)}
+              dragging={drag.draggingIndex === index}
+              handleProps={exercises.length > 1 ? drag.handleProps(index) : null}
             />
           ))}
         </ul>
@@ -294,7 +319,7 @@ function SplitDayCard({
   )
 }
 
-function ExerciseRow({ exercise, onUpdate, onDelete }) {
+function ExerciseRow({ exercise, onUpdate, onDelete, slotRef, slotStyle, dragging, handleProps }) {
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(exercise.name)
   const [muscleGroup, setMuscleGroup] = useState(exercise.muscle_group)
@@ -318,7 +343,7 @@ function ExerciseRow({ exercise, onUpdate, onDelete }) {
 
   if (editing) {
     return (
-      <li class="exercise-row editing">
+      <li ref={slotRef} style={slotStyle} class="exercise-row editing">
         <form class="edit-exercise-form" onSubmit={handleSave}>
           <input type="text" value={name} onInput={(e) => setName(e.currentTarget.value)} />
           <select value={muscleGroup} onChange={(e) => setMuscleGroup(e.currentTarget.value)}>
@@ -373,7 +398,8 @@ function ExerciseRow({ exercise, onUpdate, onDelete }) {
   }
 
   return (
-    <li class="exercise-row">
+    <li ref={slotRef} style={slotStyle} class={`exercise-row${dragging ? ' dragging' : ''}`}>
+      {handleProps && <DragHandle label={exercise.name} handleProps={handleProps} />}
       <div class="exercise-row-info" onClick={() => setEditing(true)}>
         <span class="exercise-name">{exercise.name}</span>
         <span class="exercise-meta">

@@ -23,7 +23,8 @@ import { MUSCLE_GROUPS } from '../../utils/muscleGroups.js'
 import { catalogMetFor, findCatalogExercise } from '../../data/exerciseCatalog.js'
 import { ExerciseNameField } from '../shared/ExerciseNameField.jsx'
 import { ExerciseTutorial } from '../shared/ExerciseTutorial.jsx'
-import { useDragReorder, moveItem } from '../../utils/useDragReorder.js'
+import { useDragReorder, moveItem, applyOrder } from '../../utils/useDragReorder.js'
+import { DragHandle } from '../shared/DragHandle.jsx'
 import './today.css'
 
 const RECENT_HISTORY_LIMIT = 3
@@ -36,6 +37,30 @@ const DAY_LABEL = new Intl.DateTimeFormat(undefined, {
   month: 'short',
   day: 'numeric',
 })
+
+// Per-workout exercise order from drag-reorder, in localStorage: a device-
+// local convenience, so every access tolerates storage being unavailable.
+const ORDER_KEY_PREFIX = 'today-order:'
+
+function loadSessionOrder(sessionId) {
+  try {
+    return JSON.parse(localStorage.getItem(ORDER_KEY_PREFIX + sessionId)) ?? null
+  } catch {
+    return null
+  }
+}
+
+function saveSessionOrder(sessionId, ids) {
+  try {
+    // Only the current workout's order is worth keeping.
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith(ORDER_KEY_PREFIX)) localStorage.removeItem(key)
+    }
+    localStorage.setItem(ORDER_KEY_PREFIX + sessionId, JSON.stringify(ids))
+  } catch {
+    // Storage blocked (private mode etc.) - the order just won't survive a reload.
+  }
+}
 
 const SHORT_DAY_LABEL = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' })
 
@@ -127,7 +152,10 @@ export function TodayView({ userId }) {
 
     // Anything with logged sets for this session counts, even if it belongs
     // to a different split (or no split) - keeps extra exercises across reloads.
-    const splitAssigned = library.filter((e) => e.split_day_id === activeSession.split_day_id)
+    const splitAssigned = applyOrder(
+      library.filter((e) => e.split_day_id === activeSession.split_day_id),
+      loadSessionOrder(activeSession.id)
+    )
     const extraUsed = library.filter(
       (e) => e.split_day_id !== activeSession.split_day_id && grouped[e.id]?.length > 0
     )
@@ -223,25 +251,15 @@ export function TodayView({ userId }) {
     }
   }
 
-  // Drag-reorder on Today saves as the split day's own exercise order, so it
-  // sticks for Split Days and the next workout too.
-  async function handleReorderSplit(from, to) {
-    const splitIds = new Set(
-      exercises.filter((e) => e.split_day_id === session.split_day_id).map((e) => e.id)
-    )
-    const split = exercises.filter((e) => splitIds.has(e.id))
-    const extras = exercises.filter((e) => !splitIds.has(e.id))
-    const reordered = moveItem(split, from, to).map((e, i) => ({ ...e, sort_order: i }))
-    const previous = exercises
+  // Drag-reorder on Today is for this workout only - the split day's own
+  // order (Split Days, future workouts) is left alone. It's kept on this
+  // device for the session so a mid-workout reload doesn't undo it.
+  function handleReorderSplit(from, to) {
+    const split = exercises.filter((e) => e.split_day_id === session.split_day_id)
+    const extras = exercises.filter((e) => e.split_day_id !== session.split_day_id)
+    const reordered = moveItem(split, from, to)
     setExercises([...reordered, ...extras])
-    setError(null)
-    try {
-      const changed = reordered.filter((e, i) => split.find((o) => o.id === e.id).sort_order !== i)
-      await Promise.all(changed.map((e) => updateExercise(e.id, { sort_order: e.sort_order })))
-    } catch (err) {
-      setExercises(previous)
-      setError(`Couldn't save the new order: ${err.message}`)
-    }
+    saveSessionOrder(session.id, reordered.map((e) => e.id))
   }
 
   async function handleDeleteSet(exercise, setEntry) {
@@ -773,16 +791,7 @@ function BurnEstimateSection({
 function ExerciseLedger({ exercise, sets, lastSets, onLogSet, onDeleteSet, dragHandleProps }) {
   const title = (
     <div class="ledger-title">
-      {dragHandleProps && (
-        <button
-          type="button"
-          class="drag-handle"
-          aria-label={`Reorder ${exercise.name}: drag, or use the arrow keys`}
-          {...dragHandleProps}
-        >
-          ⠿
-        </button>
-      )}
+      {dragHandleProps && <DragHandle label={exercise.name} handleProps={dragHandleProps} />}
       <h2>{exercise.name}</h2>
     </div>
   )

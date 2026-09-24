@@ -93,6 +93,34 @@ p {
   color: var(--pr-green);
 }
 
+.drag-handle {
+  flex-shrink: 0;
+  font: inherit;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--chalk-dim);
+  background: none;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 6px;
+  margin-left: -6px;
+  cursor: grab;
+  /* The browser must not treat a drag on the handle as a page scroll. */
+  touch-action: none;
+}
+
+.drag-handle:hover,
+.drag-handle:focus-visible {
+  color: var(--chalk);
+  background: var(--surface);
+}
+
+/* Set on a useDragReorder item while it's being dragged. */
+.dragging .drag-handle {
+  cursor: grabbing;
+  color: var(--plate-red);
+}
+
 .exercise-tutorial {
   display: grid;
   gap: 8px;

@@ -263,3 +263,18 @@
   background: var(--plate-red);
   border-color: var(--plate-red);
 }
+
+/* The lifted row needs a solid background and depth to sit over the others. */
+.exercise-row.dragging {
+  background: var(--surface-raised);
+  box-shadow: var(--shadow);
+  border-radius: 8px;
+  padding-inline: 8px;
+  margin-inline: -8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .exercise-row {
+    transition: none !important;
+  }
+}

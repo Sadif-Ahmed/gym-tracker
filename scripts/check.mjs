@@ -4,7 +4,7 @@ import { computeSessionCalorieBurn } from '../src/utils/calorieBurnCalculator.js
 import { EXERCISE_CATALOG, findCatalogExercise, catalogMetFor, tutorialFor } from '../src/data/exerciseCatalog.js'
 import { PLAN_LIBRARY } from '../src/data/planLibrary.js'
 import { formatDuration } from '../src/utils/workoutSummary.js'
-import { moveItem } from '../src/utils/useDragReorder.js'
+import { moveItem, applyOrder } from '../src/utils/useDragReorder.js'
 
 // Calorie burn: warm-ups get 1 min each, cardio its logged time, lifts split the rest.
 {
@@ -79,6 +79,12 @@ assert.equal(formatDuration(900), '15m')
   assert.deepEqual(moveItem(list, 0, 2), ['b', 'c', 'a', 'd'])
   assert.deepEqual(moveItem(list, 1, 1), list)
   assert.deepEqual(list, ['a', 'b', 'c', 'd'])
+
+  // Saved order wins; new items go after in their own order; stale ids ignored.
+  const items = ['a', 'b', 'c', 'd'].map((id) => ({ id }))
+  const ids = (xs) => xs.map((x) => x.id)
+  assert.deepEqual(ids(applyOrder(items, ['c', 'a', 'gone'])), ['c', 'a', 'b', 'd'])
+  assert.deepEqual(ids(applyOrder(items, null)), ['a', 'b', 'c', 'd'])
 }
 
 console.log('all checks passed')

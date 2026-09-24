@@ -5,6 +5,7 @@ const SECTIONS = [
     title: 'Today',
     body: [
       "Pick a split day to start today's workout. Log each set as you go — weight × reps for strength exercises, minutes for timed ones (cardio, planks, holds). Minutes can be decimals: 0.5 is 30 seconds.",
+      "Drag an exercise's ⠿ handle up or down to change the order for today's workout only. Your split day keeps its own order; change that in Split Days.",
       'Under each exercise, "Last" shows the sets you logged for it in your most recent previous workout, so you know what weight to aim for.',
       'Tap Finish when you\'re done, then "Estimate calories burned" for a MET-based estimate from your actual sets and bodyweight — review it and edit the number before saving.',
     ],
@@ -55,6 +56,7 @@ const SECTIONS = [
     title: 'Split Days',
     body: [
       'Manage your own training split: add, rename, or remove days, and the exercises inside each one.',
+      "Drag an exercise's ⠿ handle to change the order it appears in every workout on that day.",
       "When adding an exercise, start typing to pick from the exercise list: it fills in the muscle group and how it's logged. If yours isn't there, type its name and it's added as a new exercise.",
     ],
   },

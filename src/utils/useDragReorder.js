@@ -131,3 +131,15 @@ export function moveItem(list, from, to) {
   next.splice(to, 0, item)
   return next
 }
+
+// Reorders items (objects with an id) to follow savedIds. Ids missing from
+// savedIds (e.g. added since the order was saved) go after, in their
+// original order; saved ids that no longer exist are ignored.
+export function applyOrder(list, savedIds) {
+  if (!savedIds) return list
+  const rank = new Map(savedIds.map((id, i) => [id, i]))
+  return list
+    .map((item, i) => [item, rank.has(item.id) ? rank.get(item.id) : savedIds.length + i])
+    .sort((a, b) => a[1] - b[1])
+    .map(([item]) => item)
+}
