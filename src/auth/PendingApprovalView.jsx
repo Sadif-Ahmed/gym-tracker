@@ -5,8 +5,8 @@ export function PendingApprovalView({ email }) {
     <section class="login-view">
       <h1>WorkoutTracker</h1>
       <p role="status">
-        {email} is signed in but hasn't been approved yet. An admin needs to approve
-        your account before you can use the app.
+        {email} is signed in but this account has been disabled. Contact an admin
+        to have it re-enabled.
       </p>
       <button type="button" onClick={signOut}>
         Log out

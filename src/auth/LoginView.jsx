@@ -1,10 +1,9 @@
 import { useState } from 'preact/hooks'
 import { supabase } from '../lib/supabaseClient.js'
 
-// Self-serve signup (email + password) is intentionally allowed here —
-// unlike the original invite-only design, new accounts are gated after
-// the fact by admin approval (Section: profiles.approved), not before.
-// See PendingApprovalView for what a freshly-signed-up user sees next.
+// Open self-serve signup (email + password). New accounts are approved
+// automatically (open_signup migration); profiles.approved stays as a
+// kill switch, and PendingApprovalView is what a blocked user sees.
 export function LoginView() {
   const [mode, setMode] = useState('signin') // signin | signup | forgot
   const [email, setEmail] = useState('')
@@ -58,8 +57,7 @@ export function LoginView() {
       <section class="login-view">
         <h1>WorkoutTracker</h1>
         <p role="status">
-          Account created. Check your email to confirm it, then wait for an admin to
-          approve your account before you can sign in.
+          Account created. Check your email to confirm it, then sign in.
         </p>
       </section>
     )

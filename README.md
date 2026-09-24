@@ -22,7 +22,7 @@ For the full design rationale — schema, RLS model, auth flow, LLM usage, deplo
 - Steps bridge — an iOS Shortcut syncs daily step count via a per-user token
 - Progress charts (estimated 1RM trend per exercise)
 - History with per-workout detail and deletion
-- Self-serve signup gated by admin approval (no public database access until approved)
+- Open self-serve signup; an admin can still block an account by setting `profiles.approved = false`
 - Forgot / reset password flow
 - Settings "Danger zone" — clear your own workout, nutrition, weight, or steps history independently
 - In-app "How To Use" guide
