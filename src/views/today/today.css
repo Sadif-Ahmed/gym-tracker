@@ -137,6 +137,29 @@
   min-width: 0;
 }
 
+.collapse-toggle {
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  font-size: 12px;
+  color: var(--chalk-dim);
+  background: var(--surface);
+  border: 1px solid var(--iron-line);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.exercise-ledger.collapsed header {
+  margin-bottom: 4px;
+}
+
+.collapsed-summary {
+  margin: 0;
+  font-size: 13px;
+  color: var(--chalk-dim);
+}
+
 /* The lifted card needs a solid background and depth to sit over the others. */
 .ledger-slot.dragging .exercise-ledger {
   background: var(--surface-raised);

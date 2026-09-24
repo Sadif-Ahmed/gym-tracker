@@ -38,27 +38,29 @@ const DAY_LABEL = new Intl.DateTimeFormat(undefined, {
   day: 'numeric',
 })
 
-// Per-workout exercise order from drag-reorder, in localStorage: a device-
-// local convenience, so every access tolerates storage being unavailable.
+// Per-workout UI state (drag-reorder order, collapsed exercises) in
+// localStorage: a device-local convenience, so every access tolerates
+// storage being unavailable.
 const ORDER_KEY_PREFIX = 'today-order:'
+const COLLAPSED_KEY_PREFIX = 'today-collapsed:'
 
-function loadSessionOrder(sessionId) {
+function loadSessionValue(prefix, sessionId) {
   try {
-    return JSON.parse(localStorage.getItem(ORDER_KEY_PREFIX + sessionId)) ?? null
+    return JSON.parse(localStorage.getItem(prefix + sessionId)) ?? null
   } catch {
     return null
   }
 }
 
-function saveSessionOrder(sessionId, ids) {
+function saveSessionValue(prefix, sessionId, value) {
   try {
-    // Only the current workout's order is worth keeping.
+    // Only the current workout's value is worth keeping.
     for (const key of Object.keys(localStorage)) {
-      if (key.startsWith(ORDER_KEY_PREFIX)) localStorage.removeItem(key)
+      if (key.startsWith(prefix)) localStorage.removeItem(key)
     }
-    localStorage.setItem(ORDER_KEY_PREFIX + sessionId, JSON.stringify(ids))
+    localStorage.setItem(prefix + sessionId, JSON.stringify(value))
   } catch {
-    // Storage blocked (private mode etc.) - the order just won't survive a reload.
+    // Storage blocked (private mode etc.) - it just won't survive a reload.
   }
 }
 
@@ -84,6 +86,7 @@ export function TodayView({ userId }) {
   const [recentSessions, setRecentSessions] = useState([])
   const [lastSetsByExercise, setLastSetsByExercise] = useState({})
   const [changingSplit, setChangingSplit] = useState(false)
+  const [collapsedIds, setCollapsedIds] = useState([])
 
   const today = todayISO()
 
@@ -154,12 +157,21 @@ export function TodayView({ userId }) {
     // to a different split (or no split) - keeps extra exercises across reloads.
     const splitAssigned = applyOrder(
       library.filter((e) => e.split_day_id === activeSession.split_day_id),
-      loadSessionOrder(activeSession.id)
+      loadSessionValue(ORDER_KEY_PREFIX, activeSession.id)
     )
     const extraUsed = library.filter(
       (e) => e.split_day_id !== activeSession.split_day_id && grouped[e.id]?.length > 0
     )
     setExercises([...splitAssigned, ...extraUsed])
+    setCollapsedIds(loadSessionValue(COLLAPSED_KEY_PREFIX, activeSession.id) ?? [])
+  }
+
+  function handleToggleCollapsed(exerciseId) {
+    const next = collapsedIds.includes(exerciseId)
+      ? collapsedIds.filter((id) => id !== exerciseId)
+      : [...collapsedIds, exerciseId]
+    setCollapsedIds(next)
+    saveSessionValue(COLLAPSED_KEY_PREFIX, session.id, next)
   }
 
   async function handleStartWorkout(splitDay) {
@@ -259,7 +271,7 @@ export function TodayView({ userId }) {
     const extras = exercises.filter((e) => e.split_day_id !== session.split_day_id)
     const reordered = moveItem(split, from, to)
     setExercises([...reordered, ...extras])
-    saveSessionOrder(session.id, reordered.map((e) => e.id))
+    saveSessionValue(ORDER_KEY_PREFIX, session.id, reordered.map((e) => e.id))
   }
 
   async function handleDeleteSet(exercise, setEntry) {
@@ -414,6 +426,8 @@ export function TodayView({ userId }) {
           onLogSet={handleLogSet}
           onDeleteSet={handleDeleteSet}
           onReorderSplit={handleReorderSplit}
+          collapsedIds={collapsedIds}
+          onToggleCollapsed={handleToggleCollapsed}
           onAddExtraExercise={handleAddExtraExercise}
           onCreateExtraExercise={handleCreateExtraExercise}
           onFinish={handleFinishWorkout}
@@ -504,6 +518,8 @@ function WorkoutLog({
   onLogSet,
   onDeleteSet,
   onReorderSplit,
+  collapsedIds,
+  onToggleCollapsed,
   onAddExtraExercise,
   onCreateExtraExercise,
   onFinish,
@@ -550,6 +566,8 @@ function WorkoutLog({
               lastSets={lastSetsByExercise[exercise.id]}
               onLogSet={(values) => onLogSet(exercise, values)}
               onDeleteSet={(setEntry) => onDeleteSet(exercise, setEntry)}
+              collapsed={collapsedIds.includes(exercise.id)}
+              onToggleCollapsed={() => onToggleCollapsed(exercise.id)}
               dragHandleProps={splitExercises.length > 1 ? drag.handleProps(index) : null}
             />
           </div>
@@ -567,6 +585,8 @@ function WorkoutLog({
               lastSets={lastSetsByExercise[exercise.id]}
               onLogSet={(values) => onLogSet(exercise, values)}
               onDeleteSet={(setEntry) => onDeleteSet(exercise, setEntry)}
+              collapsed={collapsedIds.includes(exercise.id)}
+              onToggleCollapsed={() => onToggleCollapsed(exercise.id)}
             />
           ))}
         </>
@@ -788,11 +808,33 @@ function BurnEstimateSection({
   )
 }
 
-function ExerciseLedger({ exercise, sets, lastSets, onLogSet, onDeleteSet, dragHandleProps }) {
+function ExerciseLedger({
+  exercise,
+  sets,
+  lastSets,
+  onLogSet,
+  onDeleteSet,
+  dragHandleProps,
+  collapsed,
+  onToggleCollapsed,
+}) {
+  // Collapsing only makes sense once there's something logged to summarize.
+  const canCollapse = !exercise.no_metrics && sets.length > 0
   const title = (
     <div class="ledger-title">
       {dragHandleProps && <DragHandle label={exercise.name} handleProps={dragHandleProps} />}
       <h2>{exercise.name}</h2>
+      {canCollapse && (
+        <button
+          type="button"
+          class="collapse-toggle"
+          aria-expanded={!collapsed}
+          aria-label={collapsed ? `Show ${exercise.name} sets` : `Hide ${exercise.name} sets`}
+          onClick={onToggleCollapsed}
+        >
+          {collapsed ? '▼' : '▲'}
+        </button>
+      )}
     </div>
   )
 
@@ -833,6 +875,18 @@ function ExerciseLedger({ exercise, sets, lastSets, onLogSet, onDeleteSet, dragH
         >
           {done ? 'Done ✓ (tap to undo)' : 'Mark done'}
         </button>
+      </section>
+    )
+  }
+
+  if (canCollapse && collapsed) {
+    return (
+      <section class="exercise-ledger collapsed">
+        <header>{title}</header>
+        <p class="collapsed-summary">
+          {sets.length} {sets.length === 1 ? 'set' : 'sets'} ·{' '}
+          <span class="num">{sets.map(formatSet).join(', ')}</span>
+        </p>
       </section>
     )
   }
