@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient.js'
+import { catalogMetFor } from './exerciseCatalog.js'
 
 export async function listExercises({ splitDayId } = {}) {
   let query = supabase.from('exercises').select('*').order('sort_order', { ascending: true })
@@ -35,6 +36,9 @@ export async function createExercise({
       is_cardio: isCardio,
       no_metrics: noMetrics,
       sort_order: sortOrder,
+      // Catalog exercises get a known MET up front; the rest stay null and
+      // get LLM-classified on their first Finish.
+      met_value: catalogMetFor(name),
     })
     .select()
     .single()

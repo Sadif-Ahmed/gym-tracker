@@ -83,6 +83,16 @@ p {
   font-variant-numeric: tabular-nums;
 }
 
+/* Under the exercise-name field: whether the name is on the verified list. */
+.catalog-hint {
+  font-size: 13px;
+  color: var(--chalk-dim);
+}
+
+.catalog-hint.verified {
+  color: var(--pr-green);
+}
+
 .sr-only {
   position: absolute;
   width: 1px;

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'preact/hooks'
 import { listSplitDays, createSplitDay, updateSplitDay, deleteSplitDay } from '../../data/splitDays.js'
 import { listExercises, createExercise, updateExercise, deleteExercise } from '../../data/exercises.js'
 import { MUSCLE_GROUPS } from '../../utils/muscleGroups.js'
+import { ExerciseNameField } from '../shared/ExerciseNameField.jsx'
 import './manageSplitDays.css'
 
 export function ManageSplitDaysView({ userId }) {
@@ -276,6 +277,7 @@ function SplitDayCard({
 
       {addingExercise ? (
         <AddExerciseForm
+          dayId={day.id}
           onAdd={(values) => {
             onAddExercise(values)
             setAddingExercise(false)
@@ -348,7 +350,7 @@ function ExerciseRow({ exercise, onUpdate, onDelete }) {
               checked={isCardio}
               onChange={(e) => setIsCardio(e.currentTarget.checked)}
             />
-            Cardio (log time instead of weight/reps)
+            Timed (log minutes: cardio, planks, holds)
           </label>
           <label class="cardio-toggle">
             <input
@@ -378,7 +380,7 @@ function ExerciseRow({ exercise, onUpdate, onDelete }) {
           {exercise.no_metrics
             ? ' · done/undone'
             : exercise.is_cardio
-              ? ' · cardio'
+              ? ' · timed'
               : exercise.default_sets || exercise.default_rep_range
                 ? ` · ${exercise.default_sets ?? '—'}×${exercise.default_rep_range ?? '—'}`
                 : ''}
@@ -396,7 +398,7 @@ function ExerciseRow({ exercise, onUpdate, onDelete }) {
   )
 }
 
-function AddExerciseForm({ onAdd, onCancel }) {
+function AddExerciseForm({ dayId, onAdd, onCancel }) {
   const [name, setName] = useState('')
   const [muscleGroup, setMuscleGroup] = useState(MUSCLE_GROUPS[0])
   const [defaultSets, setDefaultSets] = useState('')
@@ -420,12 +422,15 @@ function AddExerciseForm({ onAdd, onCancel }) {
 
   return (
     <form class="add-exercise-form" onSubmit={handleSubmit}>
-      <input
-        type="text"
-        placeholder="Exercise name"
+      <ExerciseNameField
+        id={`add-exercise-name-${dayId}`}
         value={name}
-        onInput={(event) => setName(event.currentTarget.value)}
-        autofocus
+        onInput={setName}
+        onMatch={(entry) => {
+          setMuscleGroup(entry.muscleGroup)
+          setIsCardio(entry.kind === 'timed')
+          setNoMetrics(entry.kind === 'warmup')
+        }}
       />
       <select value={muscleGroup} onChange={(event) => setMuscleGroup(event.currentTarget.value)}>
         {MUSCLE_GROUPS.map((group) => (
@@ -457,7 +462,7 @@ function AddExerciseForm({ onAdd, onCancel }) {
           checked={isCardio}
           onChange={(event) => setIsCardio(event.currentTarget.checked)}
         />
-        Cardio (log time instead of weight/reps)
+        Timed (log minutes: cardio, planks, holds)
       </label>
       <label class="cardio-toggle">
         <input

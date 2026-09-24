@@ -7,6 +7,8 @@ export function metCaloriesBurned(metValue, bodyweightKg, durationHours) {
   return metValue * bodyweightKg * durationHours
 }
 
+export const WARMUP_MINUTES_EACH = 1
+
 // Cardio exercises get their actual logged duration (tracked precisely per
 // set). The remaining session time is split evenly across the strength
 // exercises performed - session start/end times aren't tracked per
@@ -19,8 +21,9 @@ export function computeSessionCalorieBurn({
   sessionDurationMinutes,
 }) {
   const involved = exercises.filter((exercise) => (setsByExercise[exercise.id] ?? []).length > 0)
-  const cardioExercises = involved.filter((exercise) => exercise.is_cardio)
-  const strengthExercises = involved.filter((exercise) => !exercise.is_cardio)
+  const warmups = involved.filter((exercise) => exercise.no_metrics)
+  const cardioExercises = involved.filter((exercise) => exercise.is_cardio && !exercise.no_metrics)
+  const strengthExercises = involved.filter((exercise) => !exercise.is_cardio && !exercise.no_metrics)
 
   const cardioMinutesByExercise = new Map()
   let totalCardioMinutes = 0
@@ -31,12 +34,19 @@ export function computeSessionCalorieBurn({
     totalCardioMinutes += minutes
   }
 
-  const remainingMinutes = Math.max(sessionDurationMinutes - totalCardioMinutes, 0)
+  // Warm-up drills are ~1 minute each; giving them an equal share of the
+  // session like a working exercise would hand half a workout to arm circles.
+  const warmupMinutesTotal = warmups.length * WARMUP_MINUTES_EACH
+  const remainingMinutes = Math.max(sessionDurationMinutes - totalCardioMinutes - warmupMinutesTotal, 0)
   const strengthMinutesEach =
     strengthExercises.length > 0 ? remainingMinutes / strengthExercises.length : 0
 
   const breakdown = involved.map((exercise) => {
-    const minutes = exercise.is_cardio ? cardioMinutesByExercise.get(exercise.id) : strengthMinutesEach
+    const minutes = exercise.no_metrics
+      ? WARMUP_MINUTES_EACH
+      : exercise.is_cardio
+        ? cardioMinutesByExercise.get(exercise.id)
+        : strengthMinutesEach
     const calories = metCaloriesBurned(exercise.met_value, bodyweightKg, minutes / 60)
     return { exerciseId: exercise.id, name: exercise.name, minutes, metValue: exercise.met_value, calories }
   })

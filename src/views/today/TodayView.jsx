@@ -18,8 +18,10 @@ import { createExercise, updateExercise } from '../../data/exercises.js'
 import { latestWeightEntry } from '../../data/weightEntries.js'
 import { classifyExercisesMet } from '../../services/exerciseCalorieBurn.js'
 import { computeSessionCalorieBurn } from '../../utils/calorieBurnCalculator.js'
-import { groupSetsByExercise, formatSet } from '../../utils/workoutSummary.js'
+import { groupSetsByExercise, formatSet, formatDuration } from '../../utils/workoutSummary.js'
 import { MUSCLE_GROUPS } from '../../utils/muscleGroups.js'
+import { catalogMetFor, findCatalogExercise } from '../../data/exerciseCatalog.js'
+import { ExerciseNameField } from '../shared/ExerciseNameField.jsx'
 import './today.css'
 
 const RECENT_HISTORY_LIMIT = 3
@@ -245,6 +247,7 @@ export function TodayView({ userId }) {
         name: values.name,
         muscleGroup: values.muscleGroup,
         isCardio: values.isCardio,
+        noMetrics: values.noMetrics,
         sortOrder: 0,
       })
       setLibraryExercises((prev) => [...prev, created])
@@ -273,14 +276,29 @@ export function TodayView({ userId }) {
       const needsMet = involved.filter((exercise) => exercise.met_value == null)
       const metById = new Map()
       if (needsMet.length > 0) {
-        const results = await classifyExercisesMet(
-          needsMet.map((exercise) => ({
-            name: exercise.name,
-            muscleGroup: exercise.muscle_group,
-            isCardio: exercise.is_cardio,
-          }))
-        )
-        const metByName = new Map(results.map((r) => [r.name.trim().toLowerCase(), r.met_value]))
+        // Reuse a known MET before asking the LLM: the verified catalog, or
+        // the same exercise already classified on another split day - so one
+        // exercise never ends up with two different values.
+        const metByName = new Map()
+        for (const exercise of libraryExercises) {
+          const nameKey = exercise.name.trim().toLowerCase()
+          if (exercise.met_value != null && !metByName.has(nameKey)) metByName.set(nameKey, exercise.met_value)
+        }
+        for (const exercise of needsMet) {
+          const catalogMet = catalogMetFor(exercise.name)
+          if (catalogMet != null) metByName.set(exercise.name.trim().toLowerCase(), catalogMet)
+        }
+        const unknown = needsMet.filter((exercise) => !metByName.has(exercise.name.trim().toLowerCase()))
+        if (unknown.length > 0) {
+          const results = await classifyExercisesMet(
+            unknown.map((exercise) => ({
+              name: exercise.name,
+              muscleGroup: exercise.muscle_group,
+              isCardio: exercise.is_cardio,
+            }))
+          )
+          for (const r of results) metByName.set(r.name.trim().toLowerCase(), r.met_value)
+        }
         for (const exercise of needsMet) {
           const metValue = metByName.get(exercise.name.trim().toLowerCase())
           if (metValue == null) throw new Error(`No MET classification returned for "${exercise.name}"`)
@@ -566,7 +584,15 @@ function AddExtraExercisePanel({ shownExercises, libraryExercises, onAdd, onCrea
     event.preventDefault()
     const trimmedName = name.trim()
     if (!trimmedName) return
-    onCreate({ name: trimmedName, muscleGroup, isCardio })
+    // Already have one by this name (e.g. on another split day)? Reuse it
+    // instead of creating a duplicate that tracks progress separately.
+    const existing = libraryExercises.find((e) => e.name.trim().toLowerCase() === trimmedName.toLowerCase())
+    if (existing) onAdd(existing)
+    else {
+      // Only catalog warm-ups are done/not-done; this form has no toggle for it.
+      const noMetrics = findCatalogExercise(trimmedName)?.kind === 'warmup'
+      onCreate({ name: trimmedName, muscleGroup, isCardio: isCardio && !noMetrics, noMetrics })
+    }
     reset()
   }
 
@@ -594,7 +620,7 @@ function AddExtraExercisePanel({ shownExercises, libraryExercises, onAdd, onCrea
               {exercise.name}
             </option>
           ))}
-          <option value={NEW_EXERCISE_OPTION}>+ New exercise…</option>
+          <option value={NEW_EXERCISE_OPTION}>+ Other exercise (search the list or add new)…</option>
         </select>
         <button type="button" onClick={reset}>
           Cancel
@@ -603,12 +629,14 @@ function AddExtraExercisePanel({ shownExercises, libraryExercises, onAdd, onCrea
 
       {selectedId === NEW_EXERCISE_OPTION && (
         <form class="add-extra-exercise-form" onSubmit={handleCreateSubmit}>
-          <input
-            type="text"
-            placeholder="Exercise name"
+          <ExerciseNameField
+            id="extra-exercise-name"
             value={name}
-            onInput={(event) => setName(event.currentTarget.value)}
-            autofocus
+            onInput={setName}
+            onMatch={(entry) => {
+              setMuscleGroup(entry.muscleGroup)
+              setIsCardio(entry.kind === 'timed')
+            }}
           />
           <select value={muscleGroup} onChange={(event) => setMuscleGroup(event.currentTarget.value)}>
             {MUSCLE_GROUPS.map((group) => (
@@ -623,7 +651,7 @@ function AddExtraExercisePanel({ shownExercises, libraryExercises, onAdd, onCrea
               checked={isCardio}
               onChange={(event) => setIsCardio(event.currentTarget.checked)}
             />
-            Cardio (log time instead of weight/reps)
+            Timed (log minutes: cardio, planks, holds)
           </label>
           <div class="add-extra-exercise-actions">
             <button type="submit">Add</button>
@@ -785,7 +813,7 @@ function ExerciseLedger({ exercise, sets, lastSets, onLogSet, onDeleteSet }) {
               <tr key={set.id}>
                 <td class="num set-number">{set.set_number}</td>
                 {exercise.is_cardio ? (
-                  <td class="num">{Math.round(set.duration_seconds / 60)}m</td>
+                  <td class="num">{formatDuration(set.duration_seconds)}</td>
                 ) : (
                   <>
                     <td class="num">{set.weight_kg ?? '—'}</td>
@@ -813,11 +841,11 @@ function ExerciseLedger({ exercise, sets, lastSets, onLogSet, onDeleteSet }) {
           <input
             type="number"
             inputmode="decimal"
-            placeholder="Minutes"
+            placeholder="Minutes (0.5 = 30s)"
             value={durationMin}
             onInput={(event) => setDurationMin(event.currentTarget.value)}
             min="0"
-            step="1"
+            step="any"
           />
         ) : (
           <>

@@ -113,7 +113,7 @@ export function ProgressView() {
               </optgroup>
             )}
             {cardioExercises.length > 0 && (
-              <optgroup label="Cardio">
+              <optgroup label="Timed">
                 {cardioExercises.map((exercise) => (
                   <option key={exercise.id} value={exercise.id}>
                     {exercise.name}

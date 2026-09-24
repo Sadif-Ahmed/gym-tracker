@@ -9,6 +9,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { PLAN_LIBRARY } from '../src/data/planLibrary.js'
+import { catalogMetFor } from '../src/data/exerciseCatalog.js'
 
 const [, , email, password, planId = 'recomp-ppl-6day'] = process.argv
 
@@ -94,6 +95,7 @@ async function main() {
       default_rep_range: exercise.defaultRepRange ?? null,
       is_cardio: exercise.isCardio ?? false,
       no_metrics: exercise.noMetrics ?? false,
+      met_value: catalogMetFor(exercise.name),
       sort_order: j,
     }))
     const { error: exError } = await supabase.from('exercises').insert(rows)
