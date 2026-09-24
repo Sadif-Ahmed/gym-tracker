@@ -10,19 +10,20 @@ const DAILY_CALL_CAP = 15
 // huge models - a ~400B dense/MoE one can eat the entire budget on a
 // single attempt.
 //
-// Each entry here was hand-verified against this NVIDIA account to actually
-// (a) be invokable at all - several catalog-listed vision models 404'd or
-// came back "DEGRADED" for this key despite being listed - and (b) honor
-// response_format json_schema rather than silently ignoring it and
-// returning prose (meta/llama-3.2-11b-vision-instruct does this; dropped).
-// ponytail: single model for every action (vision + text), no fallback -
-// if 90b is down, the call fails. Re-add a second pool entry if that bites.
-const MODEL_POOL = ['meta/llama-3.2-90b-vision-instruct']
+// Each entry here was hand-verified against this NVIDIA account (2026-09-24)
+// to be invokable and return schema-shaped JSON. NVIDIA retires models
+// without warning (llama-3.1-8b/70b and nemotron-nano-12b-v2-vl went 410 on
+// 2026-08-26) - if every call starts failing, re-probe the catalog.
+// muse-glimmer ignores response_format, but follows the schema when it's
+// spelled out in the system prompt (see callNvidiaOnce).
+const VISION_MODEL_POOL = ['meta/llama-3.2-90b-vision-instruct', 'meta/muse-glimmer-30b']
+
+const TEXT_MODEL_POOL = ['openai/gpt-oss-20b', 'nvidia/nemotron-3-super-120b-a12b']
 
 // Per-attempt ceiling so one slow/unavailable model fails fast and leaves
 // time for the next one in the pool, rather than exhausting the whole
 // platform execution budget on a single try.
-const PER_MODEL_TIMEOUT_MS = 30_000
+const PER_MODEL_TIMEOUT_MS = 40_000
 
 const FOOD_SCHEMA = {
   type: 'object',
@@ -128,7 +129,10 @@ async function callNvidiaOnce(
   const requestBody = {
     model,
     messages: [
-      { role: 'system', content: systemPrompt },
+      {
+        role: 'system',
+        content: `${systemPrompt}\n\nRespond with a JSON object matching this JSON Schema, using exactly these keys: ${JSON.stringify(schema)}`,
+      },
       { role: 'user', content },
     ],
     temperature: 0.1,
@@ -157,10 +161,14 @@ async function callNvidiaOnce(
   const rawContent = responseJson.choices?.[0]?.message?.content
   if (!rawContent) throw new Error('Empty response from model')
 
-  let cleaned = rawContent.trim()
-  if (cleaned.startsWith('```json')) cleaned = cleaned.slice(7)
-  if (cleaned.endsWith('```')) cleaned = cleaned.slice(0, -3)
-  return JSON.parse(cleaned)
+  // Slice to the outermost braces - drops ```json fences and any prose a
+  // model wraps around the object.
+  const parsed = JSON.parse(rawContent.slice(rawContent.indexOf('{'), rawContent.lastIndexOf('}') + 1))
+  // Wrong-shaped JSON throws so the fallback loop tries the next model
+  // instead of handing the client an object missing fields.
+  const missing = (schema as { required: string[] }).required.filter((key) => !(key in parsed))
+  if (missing.length) throw new Error(`${model} response missing keys: ${missing.join(', ')}`)
+  return parsed
 }
 
 async function callNvidiaWithFallback(
@@ -191,7 +199,7 @@ async function estimateFoodPhoto(apiKey: string, imageBase64: string | undefined
   const user = description
     ? `Estimate the calories and macros (protein, carbs, fat in grams) for the food shown in this photo. The user also describes it as: "${description}" - use that to refine portion size, ingredients, or preparation the photo alone doesn't make clear.`
     : 'Estimate the calories and macros (protein, carbs, fat in grams) for the food shown in this photo.'
-  return callNvidiaWithFallback(apiKey, MODEL_POOL, system, user, imageBase64, FOOD_SCHEMA)
+  return callNvidiaWithFallback(apiKey, VISION_MODEL_POOL, system, user, imageBase64, FOOD_SCHEMA)
 }
 
 // Classifies MET (Metabolic Equivalent of Task) values for every exercise in
@@ -215,7 +223,7 @@ async function classifyExercisesMet(
       ex.isCardio ? 'cardio' : 'strength/resistance'
     }.`)
     .join('\n')}`
-  return callNvidiaWithFallback(apiKey, MODEL_POOL, system, user, undefined, MET_SCHEMA, {
+  return callNvidiaWithFallback(apiKey, TEXT_MODEL_POOL, system, user, undefined, MET_SCHEMA, {
     maxTokens: 200 + list.length * 40,
   })
 }
@@ -240,7 +248,7 @@ async function parseTrainingPlan(apiKey: string, markdown: string | undefined) {
     'Give the overall plan a short name and one-sentence description summarizing its structure. Respond only with the requested JSON.'
   const user = `Training plan document:\n\n${trimmed}`
 
-  return callNvidiaWithFallback(apiKey, MODEL_POOL, system, user, undefined, PLAN_SCHEMA, {
+  return callNvidiaWithFallback(apiKey, TEXT_MODEL_POOL, system, user, undefined, PLAN_SCHEMA, {
     maxTokens: 4096,
     timeoutMs: 60_000,
   })
