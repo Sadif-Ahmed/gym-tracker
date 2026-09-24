@@ -15,12 +15,15 @@ For the full design rationale — schema, RLS model, auth flow, LLM usage, deplo
 
 ## Features
 
-- Day-wise workout logging against custom split days, with per-set weight/reps or cardio duration
+- Day-wise workout logging against custom split days, with per-set weight/reps or timed duration; drag to reorder exercises
+- Verified exercise catalog (muscle group, logging type, MET value) with an inline form tutorial video per exercise
+- Ready-made training plans, plus upload-your-own plan (.md/.txt) parsed by the LLM
 - Calorie-burn estimate per workout, computed from actual bodyweight + logged sets (MET math), with a one-time LLM classification per exercise
 - Nutrition logging — manual entry or photo-to-calorie estimation (reviewed before saving)
 - Daily calorie deficit target from BMR/TDEE (Mifflin-St Jeor) and logged weight
 - Steps bridge — an iOS Shortcut syncs daily step count via a per-user token
-- Progress charts (estimated 1RM trend per exercise)
+- Progress: weekly summary vs last week, 12-week consistency grid and streak, sets per muscle group, recent PRs, and per-exercise charts (est. 1RM or minutes) with PR markers and time ranges
+- Equipment scanner: photo of gym gear to suggested exercises, muscle group, target muscles and a form tip (LLM vision)
 - History with per-workout detail and deletion
 - Open self-serve signup; an admin can still block an account by setting `profiles.approved = false`
 - Forgot / reset password flow
@@ -59,6 +62,7 @@ supabase functions deploy <name> --no-verify-jwt   # only needed for ingest-step
 | `npm run dev` | Start the Vite dev server over HTTPS |
 | `npm run build` | Production build to `dist/` |
 | `npm run preview` | Preview the production build locally |
+| `npm run check` | Assertion self-checks for the pure logic in `src/utils` and `src/data` (no Supabase needed) |
 
 ## Deployment
 
@@ -78,16 +82,18 @@ supabase db push                 # applies new migrations to the hosted project
 supabase functions deploy <name> # redeploys a changed Edge Function
 ```
 
+Without Docker running (the CLI bundles functions in Docker by default), deploy through the API instead: `SUPABASE_ACCESS_TOKEN=<token> npx supabase functions deploy <name> --project-ref <ref> --use-api`.
+
 ## Project structure
 
 ```
 src/
 ├── auth/       # LoginView, PendingApprovalView, ResetPasswordView, authGuard
 ├── data/       # one module per table — thin wrappers over the Supabase client
-├── services/   # calls into the llm-proxy Edge Function
-├── utils/      # pure calculation logic (TDEE, calorie burn, steps, dates)
-└── views/      # one folder per tab (today, nutrition, history, progress, goals,
-                # manageSplitDays, settings, howto)
+├── services/   # calls into the llm-proxy Edge Function (food photo, equipment photo, MET, plan parsing)
+├── utils/      # pure logic (TDEE, calorie burn, steps, dates, progress stats, photo downscaling)
+└── views/      # one folder per tab (today, nutrition, history, progress, equipment,
+                # goals, manageSplitDays, plans, settings, howto) + shared components
 supabase/
 ├── migrations/ # every table + its RLS policies, in the order they were added
 └── functions/  # llm-proxy, ingest-steps

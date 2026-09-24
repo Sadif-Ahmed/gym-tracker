@@ -41,7 +41,17 @@ const SECTIONS = [
   {
     title: 'Progress',
     body: [
-      'Pick any exercise to chart it over time — estimated one-rep max from your best set each session for strength exercises, total minutes logged each session for cardio.',
+      "The top of Progress sums up this week: workouts, volume (weight × reps across every set) and timed minutes, each compared with last week.",
+      'Consistency shows the last 12 weeks as a grid, one column per week with Monday at the top; filled squares are days you trained. Your streak counts weeks in a row with at least one workout.',
+      "Sets per muscle counts this week's working sets (warm-ups excluded) by muscle group, so you can spot a body part you've been skipping. Recent records lists your latest personal bests.",
+      "Under By exercise, pick anything you've logged to chart it: estimated one-rep max from your best set each session for strength exercises, total minutes each session for timed ones. Green points and PR badges mark sessions that beat every earlier one; 1M / 3M / 1Y / All changes the time range.",
+    ],
+  },
+  {
+    title: 'Equipment',
+    body: [
+      'Take or upload a photo of a machine or piece of gym gear and AI names it and suggests exercises you can do with it: the muscle group, the specific muscles worked, and a form tip for each. It can take up to a minute.',
+      "Where a suggestion matches the exercise list, you get a form tutorial video too. Treat the suggestions as ideas: nothing is added to your split days, and the photo isn't saved.",
     ],
   },
   {
@@ -58,6 +68,13 @@ const SECTIONS = [
       'Manage your own training split: add, rename, or remove days, and the exercises inside each one.',
       "Drag an exercise's ⠿ handle to change the order it appears in every workout on that day.",
       "When adding an exercise, start typing to pick from the exercise list: it fills in the muscle group and how it's logged. If yours isn't there, type its name and it's added as a new exercise.",
+    ],
+  },
+  {
+    title: 'Plans',
+    body: [
+      'Browse ready-made training plans and add one to Split Days. Its days are added alongside yours; nothing is deleted.',
+      'Or upload your own plan as a .md or .txt file: AI turns it into a plan you can preview and add the same way.',
     ],
   },
   {
