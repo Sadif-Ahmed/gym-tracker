@@ -57,6 +57,28 @@ const MET_SCHEMA = {
 
 const MUSCLE_GROUPS = ['Chest', 'Back', 'Shoulders', 'Legs', 'Biceps', 'Triceps', 'Calves', 'Core', 'Cardio', 'Other']
 
+const EQUIPMENT_SCHEMA = {
+  type: 'object',
+  properties: {
+    equipment: { type: 'string' },
+    isGymEquipment: { type: 'boolean' },
+    exercises: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          muscleGroup: { type: 'string', enum: MUSCLE_GROUPS },
+          targetMuscles: { type: 'string' },
+          cue: { type: 'string' },
+        },
+        required: ['name', 'muscleGroup', 'targetMuscles', 'cue'],
+      },
+    },
+  },
+  required: ['equipment', 'isGymEquipment', 'exercises'],
+}
+
 // defaultSets/defaultRepRange use 0/"" for "not applicable" rather than
 // null - strict json_schema mode across model providers is unreliable
 // about nullable types, but every model handles plain string/integer fine.
@@ -202,6 +224,27 @@ async function estimateFoodPhoto(apiKey: string, imageBase64: string | undefined
   return callNvidiaWithFallback(apiKey, VISION_MODEL_POOL, system, user, imageBase64, FOOD_SCHEMA)
 }
 
+// Names the gym equipment in a photo and lists exercises it can be used for.
+async function identifyEquipment(apiKey: string, imageBase64: string | undefined, description?: string) {
+  if (!imageBase64) throw new Error('imageBase64 is required')
+  const system =
+    'You are a strength coach. Identify the gym equipment in the photo and list 4-6 common, safe exercises that can be done with it. ' +
+    `For each exercise give its standard gym name, the single best-fitting muscleGroup from this exact list: ${MUSCLE_GROUPS.join(', ')}, ` +
+    'targetMuscles as a short comma-separated list of the specific muscles worked (e.g. "lats, rear delts, biceps"), and cue as one short form tip. ' +
+    'If the photo does not show gym or exercise equipment, set isGymEquipment to false, describe what it shows in equipment, and return an empty exercises array. ' +
+    'Respond only with the requested JSON.'
+  const user = description
+    ? `What is this equipment and what exercises can I do with it? The user adds: "${description}"`
+    : 'What is this equipment and what exercises can I do with it?'
+  // The exercise list makes this a longer answer than a food estimate (~40s on
+  // muse-glimmer, 2026-09-24), so glimmer goes first - 90b-vision was hanging -
+  // and each model gets 65s. Two full timeouts still fit the ~150s ceiling.
+  return callNvidiaWithFallback(apiKey, [...VISION_MODEL_POOL].reverse(), system, user, imageBase64, EQUIPMENT_SCHEMA, {
+    maxTokens: 1500,
+    timeoutMs: 65_000,
+  })
+}
+
 // Classifies MET (Metabolic Equivalent of Task) values for every exercise in
 // a session that doesn't have one cached yet - the one fuzzy judgment call in
 // calorie-burn math (see src/utils/calorieBurnCalculator.js). Batched into a
@@ -319,6 +362,9 @@ Deno.serve(async (req) => {
     if (body.action === 'estimate_food_photo') {
       const description = (body.description as string | undefined)?.slice(0, 300)
       result = await estimateFoodPhoto(nvidiaApiKey, body.imageBase64 as string | undefined, description)
+    } else if (body.action === 'identify_equipment') {
+      const description = (body.description as string | undefined)?.slice(0, 300)
+      result = await identifyEquipment(nvidiaApiKey, body.imageBase64 as string | undefined, description)
     } else if (body.action === 'classify_exercises_met') {
       result = await classifyExercisesMet(nvidiaApiKey, body as never)
     } else if (body.action === 'parse_training_plan') {

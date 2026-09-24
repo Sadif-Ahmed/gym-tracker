@@ -10,6 +10,7 @@ import { PlansView } from './views/plans/PlansView.jsx'
 import { HistoryView } from './views/history/HistoryView.jsx'
 import { ProgressView } from './views/progress/ProgressView.jsx'
 import { NutritionView } from './views/nutrition/NutritionView.jsx'
+import { EquipmentView } from './views/equipment/EquipmentView.jsx'
 import { GoalsView } from './views/goals/GoalsView.jsx'
 import { SettingsView } from './views/settings/SettingsView.jsx'
 import { HowToView } from './views/howto/HowToView.jsx'
@@ -22,6 +23,7 @@ const TABS = [
   { id: 'history', label: 'History' },
   { id: 'progress', label: 'Progress' },
   { id: 'goals', label: 'Goals' },
+  { id: 'equipment', label: 'Equipment' },
   { id: 'splits', label: 'Split Days' },
   { id: 'plans', label: 'Plans' },
   { id: 'settings', label: 'Settings' },
@@ -90,6 +92,7 @@ export function App() {
           {activeTab === 'nutrition' && <NutritionView userId={session.user.id} />}
           {activeTab === 'history' && <HistoryView />}
           {activeTab === 'progress' && <ProgressView />}
+          {activeTab === 'equipment' && <EquipmentView />}
           {activeTab === 'goals' && <GoalsView userId={session.user.id} />}
           {activeTab === 'splits' && <ManageSplitDaysView userId={session.user.id} />}
           {activeTab === 'plans' && <PlansView userId={session.user.id} />}

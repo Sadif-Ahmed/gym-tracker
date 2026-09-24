@@ -1,0 +1,134 @@
+.equipment-view {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 24px 20px 96px;
+}
+
+.equipment-intro {
+  color: var(--chalk-dim);
+  font-size: 14px;
+  margin: 0 0 20px;
+}
+
+.equipment-error {
+  background: var(--plate-red-dim);
+  border: 1px solid var(--plate-red);
+  color: var(--chalk);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 20px;
+  font-size: 14px;
+}
+
+.equipment-preview {
+  display: block;
+  max-width: 100%;
+  max-height: 280px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid var(--iron-line);
+  margin-bottom: 16px;
+}
+
+.equipment-describe {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.equipment-describe label {
+  font-size: 12px;
+  color: var(--chalk-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.equipment-describe .field-hint {
+  text-transform: none;
+  letter-spacing: normal;
+  font-style: italic;
+}
+
+.equipment-describe textarea {
+  font: inherit;
+  background: var(--surface);
+  border: 1px solid var(--iron-line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--chalk);
+  resize: vertical;
+}
+
+.equipment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.equipment-actions button {
+  flex: 1;
+  font: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--chalk);
+  background: var(--surface-raised);
+  border: 1px solid var(--iron-line);
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+}
+
+.equipment-actions button.primary {
+  background: var(--plate-red);
+  border-color: var(--plate-red);
+}
+
+.equipment-name {
+  font-size: 20px;
+  margin: 8px 0 16px;
+}
+
+.equipment-exercises {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.equipment-exercises li {
+  background: var(--surface);
+  border: 1px solid var(--iron-line);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.equipment-exercise-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.equipment-exercise-name {
+  font-weight: 700;
+}
+
+.muscle-tag {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--plate-red-dim);
+  color: var(--chalk);
+}
+
+.equipment-targets,
+.equipment-cue {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--chalk-dim);
+}
