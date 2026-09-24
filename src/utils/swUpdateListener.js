@@ -18,9 +18,15 @@ export function useSwUpdate() {
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return
 
+    // On a first visit there's no controller yet, and clientsClaim makes the
+    // freshly installed worker take over - firing controllerchange with
+    // nothing to update from. Reloading then would wipe whatever a new user
+    // has already typed (e.g. the login form), so only reload when an older
+    // worker was actually replaced.
+    const hadController = Boolean(navigator.serviceWorker.controller)
     let reloaded = false
     function handleControllerChange() {
-      if (reloaded) return
+      if (!hadController || reloaded) return
       reloaded = true
       window.location.reload()
     }
