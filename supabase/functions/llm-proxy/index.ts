@@ -6,21 +6,18 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 const DAILY_CALL_CAP = 15
 
 // Tried in order; the next model is attempted if one fails or is too slow.
-// Supabase Edge Functions have a hard ~150s execution ceiling, so these are
-// deliberately small/fast models, not the biggest ones available - a large
-// dense/MoE model (e.g. a ~400B one) can easily eat the entire budget on a
-// single attempt with nothing left over for a fallback.
+// Supabase Edge Functions have a hard ~150s execution ceiling, so avoid
+// huge models - a ~400B dense/MoE one can eat the entire budget on a
+// single attempt.
 //
 // Each entry here was hand-verified against this NVIDIA account to actually
 // (a) be invokable at all - several catalog-listed vision models 404'd or
 // came back "DEGRADED" for this key despite being listed - and (b) honor
 // response_format json_schema rather than silently ignoring it and
 // returning prose (meta/llama-3.2-11b-vision-instruct does this; dropped).
-// 90b goes first now - it's the strongest of the two verified models;
-// nemotron-nano is the fast/small fallback if 90b fails or times out.
-const VISION_MODEL_POOL = ['meta/llama-3.2-90b-vision-instruct', 'nvidia/nemotron-nano-12b-v2-vl']
-
-const TEXT_MODEL_POOL = ['meta/llama-3.1-8b-instruct', 'meta/llama-3.1-70b-instruct']
+// ponytail: single model for every action (vision + text), no fallback -
+// if 90b is down, the call fails. Re-add a second pool entry if that bites.
+const MODEL_POOL = ['meta/llama-3.2-90b-vision-instruct']
 
 // Per-attempt ceiling so one slow/unavailable model fails fast and leaves
 // time for the next one in the pool, rather than exhausting the whole
@@ -194,7 +191,7 @@ async function estimateFoodPhoto(apiKey: string, imageBase64: string | undefined
   const user = description
     ? `Estimate the calories and macros (protein, carbs, fat in grams) for the food shown in this photo. The user also describes it as: "${description}" - use that to refine portion size, ingredients, or preparation the photo alone doesn't make clear.`
     : 'Estimate the calories and macros (protein, carbs, fat in grams) for the food shown in this photo.'
-  return callNvidiaWithFallback(apiKey, VISION_MODEL_POOL, system, user, imageBase64, FOOD_SCHEMA)
+  return callNvidiaWithFallback(apiKey, MODEL_POOL, system, user, imageBase64, FOOD_SCHEMA)
 }
 
 // Classifies MET (Metabolic Equivalent of Task) values for every exercise in
@@ -218,7 +215,7 @@ async function classifyExercisesMet(
       ex.isCardio ? 'cardio' : 'strength/resistance'
     }.`)
     .join('\n')}`
-  return callNvidiaWithFallback(apiKey, TEXT_MODEL_POOL, system, user, undefined, MET_SCHEMA, {
+  return callNvidiaWithFallback(apiKey, MODEL_POOL, system, user, undefined, MET_SCHEMA, {
     maxTokens: 200 + list.length * 40,
   })
 }
@@ -243,7 +240,7 @@ async function parseTrainingPlan(apiKey: string, markdown: string | undefined) {
     'Give the overall plan a short name and one-sentence description summarizing its structure. Respond only with the requested JSON.'
   const user = `Training plan document:\n\n${trimmed}`
 
-  return callNvidiaWithFallback(apiKey, TEXT_MODEL_POOL, system, user, undefined, PLAN_SCHEMA, {
+  return callNvidiaWithFallback(apiKey, MODEL_POOL, system, user, undefined, PLAN_SCHEMA, {
     maxTokens: 4096,
     timeoutMs: 60_000,
   })
