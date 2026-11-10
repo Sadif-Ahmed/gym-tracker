@@ -4,6 +4,7 @@ import { computeSessionCalorieBurn } from '../src/utils/calorieBurnCalculator.js
 import { EXERCISE_CATALOG, findCatalogExercise, catalogMetFor, tutorialFor } from '../src/data/exerciseCatalog.js'
 import { PLAN_LIBRARY } from '../src/data/planLibrary.js'
 import { formatDuration } from '../src/utils/workoutSummary.js'
+import { buildWorkoutMarkdown } from '../src/utils/workoutExport.js'
 import { moveItem, applyOrder } from '../src/utils/useDragReorder.js'
 import {
   mondayOf, exerciseHistory, exerciseStats, pointsSince, weekTotals, trainingGrid, weekStreak,
@@ -141,6 +142,27 @@ assert.equal(formatDuration(900), '15m')
 
   const records = recentRecords(sets, [bench, run, warm])
   assert.deepEqual(records.map((r) => r.sessionId), ['s3'])
+}
+
+// Export: one section per day, sets grouped per exercise in set order, units spelled out.
+{
+  const md = buildWorkoutMarkdown([{
+    date: '2026-11-09', split_day_name_snapshot: 'Push', notes: 'felt strong',
+    start_time: '2026-11-09T10:00:00Z', end_time: '2026-11-09T11:02:00Z', estimated_calories_burned: 410,
+    set_entries: [
+      { exercise_name_snapshot: 'Bench Press', set_number: 2, weight_kg: 65, reps: 6, exercises: { muscle_group: 'Chest' } },
+      { exercise_name_snapshot: 'Bench Press', set_number: 1, weight_kg: 60, reps: 8, exercises: { muscle_group: 'Chest' } },
+      { exercise_name_snapshot: 'Push-Ups', set_number: 1, weight_kg: null, reps: 12, exercises: null },
+      { exercise_name_snapshot: 'Plank', set_number: 3, duration_seconds: 90, reps: null, exercises: { muscle_group: 'Core' } },
+    ],
+  }], { fromDate: null, today: '2026-11-10' })
+  assert.match(md, /Range: all history to 2026-11-10\. 1 workouts\./)
+  assert.match(md, /^## 2026-11-09 \(Monday\): Push$/m)
+  assert.match(md, /^Duration: 62 min · Est\. burn: 410 kcal$/m)
+  assert.match(md, /^Notes: felt strong$/m)
+  assert.match(md, /^- Bench Press \(Chest\): 60kg×8, 65kg×6$/m)
+  assert.match(md, /^- Push-Ups: bodyweight×12$/m)
+  assert.match(md, /^- Plank \(Core\): 1m 30s$/m)
 }
 
 console.log('all checks passed')

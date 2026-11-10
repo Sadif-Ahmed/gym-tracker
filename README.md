@@ -24,7 +24,7 @@ For the full design rationale — schema, RLS model, auth flow, LLM usage, deplo
 - Steps bridge — an iOS Shortcut syncs daily step count via a per-user token
 - Progress: weekly summary vs last week, 12-week consistency grid and streak, sets per muscle group, recent PRs, and per-exercise charts (est. 1RM or minutes) with PR markers and time ranges
 - Equipment scanner: photo of gym gear to suggested exercises, muscle group, target muscles and a form tip (LLM vision)
-- History with per-workout detail and deletion
+- History with per-workout detail and deletion, plus a day-by-day Markdown export (1 month / 6 months / all) to feed an LLM
 - Open self-serve signup; an admin can still block an account by setting `profiles.approved = false`
 - Forgot / reset password flow
 - Settings "Danger zone" — clear your own workout, nutrition, weight, or steps history independently

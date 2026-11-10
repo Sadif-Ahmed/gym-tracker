@@ -37,6 +37,7 @@ const SECTIONS = [
     title: 'History',
     body: [
       'A month calendar highlights every day you worked out. Tap a highlighted day to see that workout\'s sets, and delete it if you logged it by mistake. Use ‹ › to switch months.',
+      'Export History, at the bottom, turns your last 1 month, 6 months or all of your workouts into Markdown, one section per day with every set. Download it as a file or Copy it, then paste or attach it in ChatGPT, Claude or another AI to ask about your training.',
     ],
   },
   {

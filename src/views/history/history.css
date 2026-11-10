@@ -185,3 +185,72 @@
   color: var(--plate-red);
   border-color: var(--plate-red);
 }
+
+.history-export {
+  background: var(--surface);
+  border: 1px solid var(--iron-line);
+  border-radius: 10px;
+  padding: 16px;
+  margin-top: 24px;
+}
+
+.history-export h2 {
+  font-size: 16px;
+  margin-bottom: 6px;
+}
+
+.export-ranges {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.export-ranges button,
+.export-actions button {
+  flex: 1;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 0;
+  border-radius: 6px;
+  border: 1px solid var(--iron-line);
+  background: var(--surface);
+  color: var(--chalk-dim);
+  cursor: pointer;
+}
+
+.export-ranges button.active {
+  background: var(--plate-red-dim);
+  border-color: var(--plate-red);
+  color: var(--chalk);
+}
+
+.export-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.export-actions button {
+  color: var(--chalk);
+  padding: 10px 0;
+}
+
+.export-actions button:hover:not(:disabled) {
+  border-color: var(--plate-red);
+}
+
+.export-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.export-status {
+  color: var(--chalk-dim);
+  font-size: 13px;
+  margin-top: 10px;
+}
+
+.history-export .history-error {
+  margin: 12px 0 0;
+}

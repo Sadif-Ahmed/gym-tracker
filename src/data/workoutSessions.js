@@ -38,6 +38,28 @@ export async function listWorkoutSessionsInRange(fromDate, toDate) {
   return data
 }
 
+// Sessions with their sets embedded, oldest first - used by History's
+// Markdown export. `fromDate` null exports everything. Paged because the
+// API caps a response at 1000 rows.
+export async function listWorkoutSessionsWithSets(fromDate) {
+  const PAGE = 1000
+  const rows = []
+  for (let from = 0; ; from += PAGE) {
+    let query = supabase
+      .from('workout_sessions')
+      .select('*, set_entries(*, exercises(muscle_group))')
+      .order('date', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, from + PAGE - 1)
+    if (fromDate) query = query.gte('date', fromDate)
+
+    const { data, error } = await query
+    if (error) throw error
+    rows.push(...data)
+    if (data.length < PAGE) return rows
+  }
+}
+
 export async function getSessionForDate(date) {
   const { data, error } = await supabase
     .from('workout_sessions')

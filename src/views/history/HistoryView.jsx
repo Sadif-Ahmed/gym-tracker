@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'preact/hooks'
-import { listWorkoutSessionsInRange, deleteWorkoutSession } from '../../data/workoutSessions.js'
+import {
+  listWorkoutSessionsInRange,
+  listWorkoutSessionsWithSets,
+  deleteWorkoutSession,
+} from '../../data/workoutSessions.js'
 import { listSetEntries } from '../../data/setEntries.js'
 import { groupSetsByExercise, formatSet } from '../../utils/workoutSummary.js'
+import { buildWorkoutMarkdown } from '../../utils/workoutExport.js'
 import { toISODate, todayISO } from '../../utils/dates.js'
 import './history.css'
 
@@ -15,8 +20,21 @@ const MONTH_LABEL = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'n
 
 const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
+const EXPORT_RANGES = [
+  { label: '1 month', slug: '1-month', months: 1 },
+  { label: '6 months', slug: '6-months', months: 6 },
+  { label: 'All', slug: 'all', months: null },
+]
+
 function formatDayLabel(isoDate) {
   return DAY_LABEL.format(new Date(`${isoDate}T00:00:00`))
+}
+
+// Clamps to the target month's last day, so Mar 31 minus 1 month is Feb 28
+// rather than rolling over into March.
+function monthsBefore(date, months) {
+  const lastDay = new Date(date.getFullYear(), date.getMonth() - months + 1, 0).getDate()
+  return new Date(date.getFullYear(), date.getMonth() - months, Math.min(date.getDate(), lastDay))
 }
 
 function startOfMonth(date) {
@@ -143,7 +161,99 @@ export function HistoryView() {
           />
         ))
       )}
+
+      <ExportHistory />
     </section>
+  )
+}
+
+function ExportHistory() {
+  const [range, setRange] = useState(EXPORT_RANGES[0])
+  const [busy, setBusy] = useState(null)
+  const [status, setStatus] = useState(null)
+  const [error, setError] = useState(null)
+
+  async function loadMarkdown() {
+    const now = new Date()
+    const today = toISODate(now)
+    const fromDate = range.months ? toISODate(monthsBefore(now, range.months)) : null
+    const sessions = await listWorkoutSessionsWithSets(fromDate)
+    return { markdown: buildWorkoutMarkdown(sessions, { fromDate, today }), today }
+  }
+
+  async function run(action, fn) {
+    setBusy(action)
+    setStatus(null)
+    setError(null)
+    try {
+      await fn()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  function handleDownload() {
+    run('download', async () => {
+      const { markdown, today } = await loadMarkdown()
+      const url = URL.createObjectURL(new Blob([markdown], { type: 'text/markdown' }))
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `workout-history-${range.slug}-${today}.md`
+      link.click()
+      URL.revokeObjectURL(url)
+    })
+  }
+
+  function handleCopy() {
+    run('copy', async () => {
+      // Safari drops the tap's clipboard permission across an await, so hand
+      // it a pending ClipboardItem synchronously and let the fetch fill it.
+      if (window.ClipboardItem && navigator.clipboard.write) {
+        const blob = loadMarkdown().then(({ markdown }) => new Blob([markdown], { type: 'text/plain' }))
+        await navigator.clipboard.write([new ClipboardItem({ 'text/plain': blob })])
+      } else {
+        await navigator.clipboard.writeText((await loadMarkdown()).markdown)
+      }
+      setStatus('Copied. Paste it into your AI chat.')
+    })
+  }
+
+  return (
+    <div class="history-export">
+      <h2>Export History</h2>
+      <p class="empty-state">
+        Your workouts day by day as Markdown, ready to paste into ChatGPT, Claude or any other AI.
+      </p>
+      <div class="export-ranges" role="group" aria-label="Export range">
+        {EXPORT_RANGES.map((r) => (
+          <button
+            key={r.slug}
+            type="button"
+            class={range === r ? 'active' : ''}
+            aria-pressed={range === r}
+            onClick={() => setRange(r)}
+          >
+            {r.label}
+          </button>
+        ))}
+      </div>
+      <div class="export-actions">
+        <button type="button" disabled={busy != null} onClick={handleDownload}>
+          {busy === 'download' ? 'Preparing…' : 'Download'}
+        </button>
+        <button type="button" disabled={busy != null} onClick={handleCopy}>
+          {busy === 'copy' ? 'Copying…' : 'Copy'}
+        </button>
+      </div>
+      {status && <p class="export-status" role="status">{status}</p>}
+      {error && (
+        <p class="history-error" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
   )
 }
 
