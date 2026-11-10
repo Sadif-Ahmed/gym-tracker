@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { computeSessionCalorieBurn } from '../src/utils/calorieBurnCalculator.js'
 import { EXERCISE_CATALOG, findCatalogExercise, catalogMetFor, tutorialFor } from '../src/data/exerciseCatalog.js'
 import { PLAN_LIBRARY } from '../src/data/planLibrary.js'
-import { formatDuration } from '../src/utils/workoutSummary.js'
+import { formatDuration, formatTarget } from '../src/utils/workoutSummary.js'
 import { buildWorkoutMarkdown } from '../src/utils/workoutExport.js'
 import { moveItem, applyOrder } from '../src/utils/useDragReorder.js'
 import {
@@ -76,6 +76,12 @@ assert.equal(formatDuration(30), '30s')
 assert.equal(formatDuration(60), '1m')
 assert.equal(formatDuration(90), '1m 30s')
 assert.equal(formatDuration(900), '15m')
+
+// Today's target line: sets × range, range alone for cardio, nothing when unset.
+assert.equal(formatTarget({ default_sets: 4, default_rep_range: '6-8' }), '4 × 6-8')
+assert.equal(formatTarget({ default_sets: null, default_rep_range: '15-20 min' }), '15-20 min')
+assert.equal(formatTarget({ default_sets: 3, default_rep_range: null }), '3 sets')
+assert.equal(formatTarget({ default_sets: null, default_rep_range: null }), null)
 
 // Reorder moves one item and keeps the rest in order, without mutating input.
 {

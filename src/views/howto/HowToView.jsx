@@ -7,6 +7,7 @@ const SECTIONS = [
       "Pick a split day to start today's workout. Log each set as you go — weight × reps for strength exercises, minutes for timed ones (cardio, planks, holds). Minutes can be decimals: 0.5 is 30 seconds.",
       "Drag an exercise's ⠿ handle up or down to change the order for today's workout only. Your split day keeps its own order; change that in Split Days.",
       "Done with an exercise? Tap ▲ next to its name to fold it down to a one-line summary of your sets; ▼ opens it again.",
+      `"Target" under an exercise's name is the sets × reps (or minutes) your split day sets for it. Change it in Split Days by editing the exercise's default sets and rep range.`,
       'Under each exercise, "Last" shows the sets you logged for it in your most recent previous workout, so you know what weight to aim for.',
       'Tap Finish when you\'re done, then "Estimate calories burned" for a MET-based estimate from your actual sets and bodyweight — review it and edit the number before saving.',
     ],

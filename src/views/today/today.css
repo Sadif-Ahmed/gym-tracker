@@ -183,6 +183,13 @@
   margin-top: 2px;
 }
 
+.target-sets {
+  color: var(--chalk);
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
 .last-sets {
   display: flex;
   flex-wrap: wrap;

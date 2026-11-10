@@ -29,3 +29,12 @@ export function formatSet(set) {
   }
   return `${set.weight_kg ?? '—'}×${set.reps}`
 }
+
+// Split-day target for an exercise: "4 × 6-8", or just the range for cardio
+// ("15-20 min") and just the count when no range is set.
+export function formatTarget(exercise) {
+  const { default_sets: sets, default_rep_range: range } = exercise
+  if (sets && range) return `${sets} × ${range}`
+  if (range) return range
+  return sets ? `${sets} sets` : null
+}

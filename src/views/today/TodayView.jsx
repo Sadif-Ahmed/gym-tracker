@@ -18,7 +18,7 @@ import { createExercise, updateExercise } from '../../data/exercises.js'
 import { latestWeightEntry } from '../../data/weightEntries.js'
 import { classifyExercisesMet } from '../../services/exerciseCalorieBurn.js'
 import { computeSessionCalorieBurn } from '../../utils/calorieBurnCalculator.js'
-import { groupSetsByExercise, formatSet, formatDuration } from '../../utils/workoutSummary.js'
+import { groupSetsByExercise, formatSet, formatDuration, formatTarget } from '../../utils/workoutSummary.js'
 import { MUSCLE_GROUPS } from '../../utils/muscleGroups.js'
 import { catalogMetFor, findCatalogExercise } from '../../data/exerciseCatalog.js'
 import { ExerciseNameField } from '../shared/ExerciseNameField.jsx'
@@ -891,11 +891,18 @@ function ExerciseLedger({
     )
   }
 
+  const target = formatTarget(exercise)
+
   return (
     <section class="exercise-ledger">
       <header>
         {title}
         <p class="muscle-group">{exercise.muscle_group}</p>
+        {target && (
+          <p class="target-sets">
+            Target <span class="num">{target}</span>
+          </p>
+        )}
       </header>
 
       <ExerciseTutorial name={exercise.name} />
