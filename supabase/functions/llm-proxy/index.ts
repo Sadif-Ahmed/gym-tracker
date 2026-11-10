@@ -10,19 +10,21 @@ const DAILY_CALL_CAP = 15
 // huge models - a ~400B dense/MoE one can eat the entire budget on a
 // single attempt.
 //
-// Each entry here was hand-verified against this NVIDIA account (2026-09-24)
-// to be invokable and return schema-shaped JSON. NVIDIA retires models
-// without warning (llama-3.1-8b/70b and nemotron-nano-12b-v2-vl went 410 on
-// 2026-08-26) - if every call starts failing, re-probe the catalog.
-// muse-glimmer ignores response_format, but follows the schema when it's
-// spelled out in the system prompt (see callNvidiaOnce).
-const VISION_MODEL_POOL = ['meta/llama-3.2-90b-vision-instruct', 'meta/muse-glimmer-30b']
+// Each entry here was hand-verified against this NVIDIA account (2026-11-10)
+// to be invokable and return schema-shaped JSON within its timeout. NVIDIA
+// retires models without warning (nemotron-3-super-120b went 404, and
+// gpt-oss-20b / llama-3.2-90b-vision / muse-glimmer stopped answering within
+// 40-120s, by 2026-11-10) - if every call starts failing, re-probe the catalog.
+// Ultra is text-only: it rejects images.
+const VISION_MODEL_POOL = ['nvidia/nemotron-3.5-super-vl-120b-a12b', 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning']
 
-const TEXT_MODEL_POOL = ['openai/gpt-oss-20b', 'nvidia/nemotron-3-super-120b-a12b']
+const TEXT_MODEL_POOL = ['nvidia/nemotron-3-ultra-550b-a55b', 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning']
 
 // Per-attempt ceiling so one slow/unavailable model fails fast and leaves
 // time for the next one in the pool, rather than exhausting the whole
 // platform execution budget on a single try.
+// Ultra's 550B is fine despite the size warning above: it's a mixture of
+// experts with 55B active, and answered in 1-34s with reasoning off.
 const PER_MODEL_TIMEOUT_MS = 40_000
 
 const FOOD_SCHEMA = {
@@ -158,6 +160,10 @@ async function callNvidiaOnce(
       { role: 'user', content },
     ],
     temperature: 0.1,
+    // Nemotron models reason before answering by default; the reasoning
+    // tokens count against max_tokens, so a short budget (MET) came back
+    // empty and plan parsing blew its timeout. The answer doesn't need it.
+    ...(model.startsWith('nvidia/') && { chat_template_kwargs: { enable_thinking: false } }),
     max_tokens: options.maxTokens ?? 1024,
     response_format: {
       type: 'json_schema',
@@ -236,10 +242,10 @@ async function identifyEquipment(apiKey: string, imageBase64: string | undefined
   const user = description
     ? `What is this equipment and what exercises can I do with it? The user adds: "${description}"`
     : 'What is this equipment and what exercises can I do with it?'
-  // The exercise list makes this a longer answer than a food estimate (~40s on
-  // muse-glimmer, 2026-09-24), so glimmer goes first - 90b-vision was hanging -
-  // and each model gets 65s. Two full timeouts still fit the ~150s ceiling.
-  return callNvidiaWithFallback(apiKey, [...VISION_MODEL_POOL].reverse(), system, user, imageBase64, EQUIPMENT_SCHEMA, {
+  // The exercise list makes this a longer answer than a food estimate (~13s on
+  // super-vl, 2026-11-10), so each model gets 65s. Two full timeouts still fit
+  // the ~150s ceiling.
+  return callNvidiaWithFallback(apiKey, VISION_MODEL_POOL, system, user, imageBase64, EQUIPMENT_SCHEMA, {
     maxTokens: 1500,
     timeoutMs: 65_000,
   })
